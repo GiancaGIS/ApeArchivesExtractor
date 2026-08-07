@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="paper" x1="62" y1="30" x2="198" y2="224" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe7f0"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="163" y1="36" x2="214" y2="88" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6f9fc"/>
+      <stop offset="1" stop-color="#bdc9d6"/>
+    </linearGradient>
+    <linearGradient id="folder" x1="55" y1="96" x2="188" y2="206" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd56d"/>
+      <stop offset="1" stop-color="#c9851d"/>
+    </linearGradient>
+    <linearGradient id="zipper" x1="119" y1="84" x2="142" y2="217" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f7de1"/>
+      <stop offset="1" stop-color="#1e4f9b"/>
+    </linearGradient>
+  </defs>
+  <path d="M57 28h100l45 45v133c0 13-11 24-24 24H57c-13 0-24-11-24-24V52c0-13 11-24 24-24z" fill="#1b314d" opacity=".18"/>
+  <path d="M61 24h100l45 45v133c0 13-11 24-24 24H61c-13 0-24-11-24-24V48c0-13 11-24 24-24z" fill="url(#paper)"/>
+  <path d="M161 24v36c0 7 6 13 13 13h32l-45-49z" fill="url(#fold)"/>
+  <path d="M64 112c0-11 9-20 20-20h30l11 14h47c11 0 20 9 20 20v70c0 11-9 20-20 20H84c-11 0-20-9-20-20v-84z" fill="#8f5d1a" opacity=".18"/>
+  <path d="M58 108c0-11 9-20 20-20h31c8 0 13 3 17 10l6 10h42c11 0 20 9 20 20v15H58v-35z" fill="#ffdd82"/>
+  <path d="M55 129c0-12 10-22 22-22h102c12 0 22 10 22 22v67c0 12-10 22-22 22H77c-12 0-22-10-22-22v-67z" fill="url(#folder)"/>
+  <path d="M114 107h28v111h-28z" fill="url(#zipper)"/>
+  <path d="M123 117h10v10h-10zM123 137h10v10h-10zM123 157h10v10h-10zM123 177h10v10h-10z" fill="#eef5ff"/>
+  <path d="M114 218h28l-8 16h-12l-8-16z" fill="#123c78"/>
+</svg>

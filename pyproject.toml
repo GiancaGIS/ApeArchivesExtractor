@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "apearchivesextractor"
+version = "1.0.0"
+description = "A small cross-platform archive manager with CLI and PyQt6 GUI."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+  { name = "Gianca" }
+]
+dependencies = [
+  "py7zr>=1.0.0",
+  "multivolumefile>=0.2.3",
+  "PyQt6>=6.7.0",
+  "rarfile>=4.2"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0"
+]
+package = [
+  "pyinstaller>=6.0.0"
+]
+
+[project.scripts]
+apearch = "apearchivesextractor.cli:main"
+apearchivesextractor = "apearchivesextractor.cli:main"
+apearchivesextractor-gui = "apearchivesextractor.gui.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+apearchivesextractor = ["assets/*.svg", "assets/*.ico", "assets/*.icns"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]

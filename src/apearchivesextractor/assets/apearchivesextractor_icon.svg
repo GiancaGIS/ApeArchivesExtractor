@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="folderBack" x1="58" y1="44" x2="210" y2="194" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffe08a"/>
+      <stop offset="1" stop-color="#e9a92f"/>
+    </linearGradient>
+    <linearGradient id="folderFront" x1="46" y1="83" x2="207" y2="221" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffd467"/>
+      <stop offset="1" stop-color="#c98219"/>
+    </linearGradient>
+    <linearGradient id="zipper" x1="113" y1="72" x2="145" y2="216" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2f7de1"/>
+      <stop offset="1" stop-color="#1e4f9b"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="150" y1="142" x2="218" y2="210" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#dfe9f8"/>
+    </linearGradient>
+  </defs>
+  <path d="M44 66c0-12 10-22 22-22h43c9 0 15 4 20 12l11 16h54c13 0 24 11 24 24v88c0 13-11 24-24 24H62c-13 0-24-11-24-24V72c0-3 3-6 6-6z" fill="#8f5d1a" opacity=".22"/>
+  <path d="M38 63c0-12 10-22 22-22h43c9 0 15 4 20 12l11 16h60c13 0 24 11 24 24v75H38V63z" fill="url(#folderBack)"/>
+  <path d="M34 91c0-13 11-24 24-24h140c13 0 24 11 24 24v92c0 16-13 29-29 29H63c-16 0-29-13-29-29V91z" fill="url(#folderFront)"/>
+  <path d="M34 91c0-13 11-24 24-24h140c13 0 24 11 24 24v13H34V91z" fill="#ffdf82" opacity=".72"/>
+  <path d="M111 67h34v145h-34z" fill="url(#zipper)"/>
+  <path d="M121 77h14v12h-14zM121 101h14v12h-14zM121 125h14v12h-14zM121 149h14v12h-14zM121 173h14v12h-14z" fill="#eef5ff"/>
+  <path d="M112 212h32l-9 19h-14l-9-19z" fill="#123c78"/>
+  <path d="M163 141h42c8 0 15 7 15 15v42c0 8-7 15-15 15h-42c-8 0-15-7-15-15v-42c0-8 7-15 15-15z" fill="#4a2e11" opacity=".18"/>
+  <path d="M160 136h42c8 0 15 7 15 15v42c0 8-7 15-15 15h-42c-8 0-15-7-15-15v-42c0-8 7-15 15-15z" fill="url(#badge)"/>
+  <path d="M173 190l11-36h12l11 36h-10l-2-8h-11l-2 8h-9zm13-17h7l-3-12h-1l-3 12z" fill="#1f4f96"/>
+</svg>

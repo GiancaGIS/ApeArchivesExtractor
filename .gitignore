@@ -1,0 +1,7 @@
+/.idea
+/build
+/dist
+/.pytest_cache
+/.pytest-tmp
+*.pyc
+/src/apearchivesextractor.egg-info

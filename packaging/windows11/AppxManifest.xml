@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  IgnorableNamespaces="uap desktop4 desktop5 uap10 rescap"
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:desktop5="http://schemas.microsoft.com/appx/manifest/desktop/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities">
+  <Identity
+    Name="GiancaGIS.ApeArchivesExtractor"
+    Publisher="CN=GiancaGIS"
+    Version="1.0.0.0"
+    ProcessorArchitecture="neutral" />
+  <Properties>
+    <DisplayName>ApeArchivesExtractor</DisplayName>
+    <PublisherDisplayName>GiancaGIS</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+  </Properties>
+  <Resources>
+    <Resource Language="it-it" />
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+  <Applications>
+    <Application
+      Id="ApeArchivesExtractor"
+      Executable="ApeArchivesExtractor.exe"
+      uap10:TrustLevel="mediumIL"
+      uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements
+        AppListEntry="none"
+        DisplayName="ApeArchivesExtractor"
+        Description="Archive manager for ZIP, 7Z, RAR and multi-volume files"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png" />
+      <Extensions>
+        <desktop4:Extension Category="windows.fileExplorerContextMenus">
+          <desktop4:FileExplorerContextMenus>
+            <desktop5:ItemType Type="*">
+              <desktop5:Verb Id="ApeArchivesExtractorOpen" Clsid="2f4d7b1b-873b-4bbe-87e3-6ec9c9b8b201" />
+              <desktop5:Verb Id="ApeArchivesExtractorExtractHere" Clsid="8b20de33-8d69-47e7-8907-4f1f52863872" />
+              <desktop5:Verb Id="ApeArchivesExtractorOpenAsZip" Clsid="f3b78bd9-1340-402c-987c-a5f1b91dcb12" />
+              <desktop5:Verb Id="ApeArchivesExtractorCreateArchive" Clsid="a90478d2-61e7-4bde-a492-8e402b897a20" />
+            </desktop5:ItemType>
+            <desktop5:ItemType Type="Directory">
+              <desktop5:Verb Id="ApeArchivesExtractorCreateArchive" Clsid="a90478d2-61e7-4bde-a492-8e402b897a20" />
+            </desktop5:ItemType>
+          </desktop4:FileExplorerContextMenus>
+        </desktop4:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>
