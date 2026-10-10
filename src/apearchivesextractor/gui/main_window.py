@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 GiancaGIS
+
 from __future__ import annotations
 
 import shutil
@@ -11,6 +14,7 @@ from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
+    QComboBox,
     QDialog,
     QFileDialog,
     QHeaderView,
@@ -43,6 +47,7 @@ from apearchivesextractor.gui.workers import ArchiveWorker
 from apearchivesextractor.models import ArchiveEntry, ArchiveFormat
 from apearchivesextractor.security import normalize_archive_name
 from apearchivesextractor.spanned import detect_archive_format, is_spanned_archive
+from apearchivesextractor.legal_info import legal_documents
 
 
 class MainWindow(QMainWindow):
@@ -273,6 +278,34 @@ class MainWindow(QMainWindow):
             action.triggered.connect(lambda checked=False, value=language: self._set_language(value))
             language_group.addAction(action)
             language_menu.addAction(action)
+
+        help_menu = self.menuBar().addMenu(self._tr("menu.help"))
+        license_action = QAction(self._tr("menu.licenses"), self)
+        license_action.triggered.connect(self._show_licenses)
+        help_menu.addAction(license_action)
+
+    def _show_licenses(self) -> None:
+        dialog = QDialog(self)
+        dialog.setWindowTitle(self._tr("menu.licenses"))
+        dialog.resize(850, 620)
+        layout = QVBoxLayout(dialog)
+        notice = QLabel(self._tr("legal.summary"))
+        notice.setWordWrap(True)
+        layout.addWidget(notice)
+        documents = legal_documents()
+        selector = QComboBox(dialog)
+        selector.addItems([name for name, _text in documents])
+        viewer = QTextEdit(dialog)
+        viewer.setReadOnly(True)
+        layout.addWidget(selector)
+        layout.addWidget(viewer, 1)
+        selector.currentIndexChanged.connect(lambda index: viewer.setPlainText(documents[index][1]))
+        selector.setCurrentText("NOTICE.txt")
+        viewer.setPlainText(dict(documents)[selector.currentText()])
+        close_button = QPushButton(self._tr("button.close"), dialog)
+        close_button.clicked.connect(dialog.accept)
+        layout.addWidget(close_button)
+        dialog.exec()
 
     def _set_language(self, language: str) -> None:
         if language == self._language:

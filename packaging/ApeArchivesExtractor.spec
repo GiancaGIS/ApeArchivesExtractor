@@ -8,11 +8,14 @@ from pathlib import Path
 
 block_cipher = None
 app_name = "ApeArchivesExtractor"
-app_version = "1.0.0"
+app_version = "1.0.1"
 bundle_identifier = "com.giancagis.apearchivesextractor"
 is_windows = sys.platform.startswith("win")
 is_macos = sys.platform == "darwin"
 project_root = Path(SPECPATH).parent
+sys.path.insert(0, str(project_root / "scripts"))
+from collect_licenses import collect, source_snapshot
+initial_source_snapshot = source_snapshot(project_root)
 src_root = project_root / "src"
 entry_point = src_root / "apearchivesextractor" / "gui" / "app.py"
 
@@ -43,6 +46,15 @@ a = Analysis(
     cipher=block_cipher,
     noarchive=False,
 )
+# PDF rendering is unused by the archive manager. Avoid bundling PDFium and its
+# unrelated dependency tree through Qt's automatic image-plugin collection.
+a.binaries = [entry for entry in a.binaries if Path(entry[0]).name.lower()
+              not in {"qpdf.dll", "libqpdf.dylib", "libqpdf.so", "qt6pdf.dll", "libqt6pdf.6.dylib"}
+              and "QtPdf.framework" not in entry[0]
+              and not Path(entry[0]).name.startswith("libQt6Pdf.so")]
+legal_output = collect(project_root, a, initial_source_snapshot)
+a.datas += [("apearchivesextractor/legal/generated/" + path.relative_to(legal_output).as_posix(),
+             str(path), "DATA") for path in sorted(legal_output.rglob("*")) if path.is_file()]
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(

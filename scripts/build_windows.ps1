@@ -32,4 +32,5 @@ if (Test-Path -LiteralPath $sparsePackageScript -PathType Leaf) {
     if ($LASTEXITCODE -ne 0) { throw "Build identity package Windows 11 fallita." }
 }
 
-Write-Host "Build completata. Output: dist\ApeArchivesExtractor"
+Write-Host "Build locale completata. Output: dist\ApeArchivesExtractor"
+Write-Host "Prima di distribuire: esegui scripts\prepare_release_sources.py e segui RELEASE_CHECKLIST.md."

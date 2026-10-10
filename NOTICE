@@ -1,0 +1,13 @@
+ApeArchivesExtractor
+Copyright (c) 2026 GiancaGIS
+
+This release is licensed under the GNU General Public License, version 3 only
+(GPL-3.0-only). You may redistribute and modify it under those terms.
+There is no warranty, to the extent permitted by law. See LICENSE for details.
+
+Third-party components retain their own copyrights and licenses. The packaged
+application includes THIRD_PARTY_NOTICES.md, component-manifest.json, and full
+license texts under legal/. See SOURCES.md for corresponding source information.
+
+Earlier versions of the project's own code distributed under MIT remain available
+under their original terms. This does not relicense PyQt6 or other dependencies.

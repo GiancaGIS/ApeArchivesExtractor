@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 GiancaGIS
+
 from __future__ import annotations
 
 SUPPORTED_LANGUAGES = ("it", "en")
@@ -48,6 +51,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "selection.many": "Selezionati: {count} elementi",
         "log.placeholder": "Log operazioni...",
         "menu.file": "File",
+        "menu.help": "Aiuto",
+        "menu.licenses": "Licenze e codice sorgente",
+        "legal.summary": "ApeArchivesExtractor — Copyright (c) 2026 GiancaGIS. GPLv3: puoi ridistribuire e modificare il programma nei termini della licenza. Nessuna garanzia. Usa il selettore per leggere licenze, avvisi e informazioni sui sorgenti.",
         "menu.open": "Apri archivio...",
         "menu.recent": "Apri recente",
         "menu.create": "Crea archivio...",
@@ -201,6 +207,9 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "create.delete_originals.error_body": "L'archivio e' stato creato, ma non e' stato possibile eliminare tutti gli originali.\n\n{error}",
     },
     "en": {
+        "menu.help": "Help",
+        "menu.licenses": "Licenses and source code",
+        "legal.summary": "ApeArchivesExtractor — Copyright (c) 2026 GiancaGIS. GPLv3: you may redistribute and modify this program under the license terms. No warranty. Use the selector to read licenses, notices and source information.",
         "app.ready": "Ready. Supported formats: ZIP, 7Z, RAR, TAR.GZ, and multi-volume archives",
         "archive.label": "Archive",
         "archive.placeholder": "Drop an archive to open, or a file to add to the open archive...",

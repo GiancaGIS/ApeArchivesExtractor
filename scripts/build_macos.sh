@@ -8,4 +8,6 @@ python -m pip install --upgrade pip
 pip install -e ".[package]"
 python scripts/build_icons.py
 python -m PyInstaller --noconfirm --clean packaging/ApeArchivesExtractor.spec
-echo "Build completata. Output: dist/ApeArchivesExtractor.app"
+echo "Build locale completata. Output: dist/ApeArchivesExtractor.app"
+echo "Prima di distribuire: python scripts/prepare_release_sources.py --bundle dist/ApeArchivesExtractor.app"
+echo "Segui RELEASE_CHECKLIST.md e verifica con scripts/check_release.py --bundle dist/ApeArchivesExtractor.app"

@@ -1,12 +1,14 @@
 [build-system]
-requires = ["setuptools>=69", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "apearchivesextractor"
-version = "1.0.0"
+version = "1.0.1"
 description = "A small cross-platform archive manager with CLI and PyQt6 GUI."
 readme = "README.md"
+license = "GPL-3.0-only"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 authors = [
   { name = "Gianca" }
@@ -35,7 +37,7 @@ apearchivesextractor-gui = "apearchivesextractor.gui.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-apearchivesextractor = ["assets/*.svg", "assets/*.ico", "assets/*.icns"]
+apearchivesextractor = ["assets/*.svg", "assets/*.ico", "assets/*.icns", "legal/*.txt", "legal/*.md"]
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]

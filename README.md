@@ -240,7 +240,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows_inst
 This requires [Inno Setup 6](https://jrsoftware.org/isinfo.php). The generated installer is:
 
 ```text
-dist\ApeArchivesExtractorSetup-1.0.0.exe
+dist\ApeArchivesExtractorSetup-1.0.1.exe
 ```
 
 The installer asks whether to install ApeArchivesExtractor for the current user only or for
@@ -392,7 +392,27 @@ ApeArchivesExtractor also applies extraction safety limits to reduce the risk of
 
 ## License
 
-ApeArchivesExtractor is released under the terms of the [MIT License](LICENSE).
+ApeArchivesExtractor is released under **GNU GPL version 3 only
+(GPL-3.0-only)**. See [LICENSE](LICENSE) and [NOTICE](NOTICE). You may redistribute
+and modify the application under those terms. There is no warranty.
+
+The GUI uses the GPLv3 version of PyQt6. Third-party libraries retain their own
+copyrights and licenses, including the LGPL terms of Qt and the compression
+libraries. Packaged applications include complete collected license texts and
+an exact component inventory, available from **Help > Licenses and source code**.
+The CLI also provides `apearch --license`.
+
+Before publishing binaries, prepare the matching source companion with
+`python scripts/prepare_release_sources.py` and complete
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md). Run `python scripts/check_release.py`
+before compiling an installer. For macOS pass `--bundle dist/ApeArchivesExtractor.app`
+to both commands. Publish the generated source ZIP next to the binary downloads.
+See [SOURCES.md](SOURCES.md) for source availability and rebuilding with modified
+dependencies. The Windows installer script prepares sources and stops until
+the release review is complete; a portable development build is still available.
+
+The project's own code previously distributed under MIT retains that original
+license for those versions. This does not change the licenses of dependencies.
 
 ## Disclaimer
 

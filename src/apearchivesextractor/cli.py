@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 GiancaGIS
+
 from __future__ import annotations
 
 import argparse
@@ -9,6 +12,7 @@ from apearchivesextractor.archive_service import ArchiveService
 from apearchivesextractor.errors import ApeArchivesExtractorError
 from apearchivesextractor.models import ProgressEvent
 from apearchivesextractor.volume_size import parse_volume_size
+from apearchivesextractor.legal_info import license_notice
 
 
 def _volume_size_arg(value: str) -> int:
@@ -36,7 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="apearch",
         description="Archive manager for ZIP, 7Z, RAR, TAR.GZ, and multi-volume files.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    parser.add_argument("--license", action="version", version=license_notice(),
+                        help="Show copyright, redistribution terms and the full GPLv3 license")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     list_parser = subparsers.add_parser("list", help="List archive content")

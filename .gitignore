@@ -5,3 +5,4 @@
 /.pytest-tmp
 *.pyc
 /src/apearchivesextractor.egg-info
+LICENSE_AUDIT.md

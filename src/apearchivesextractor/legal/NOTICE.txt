@@ -1,0 +1,15 @@
+ApeArchivesExtractor — Copyright (c) 2026 GiancaGIS
+
+Licensed under GNU GPL version 3 only (GPL-3.0-only).
+You may redistribute and modify this program under the terms of that license.
+This program comes with NO WARRANTY, to the extent permitted by law.
+The full license is included in LICENSE.txt.
+
+This application uses PyQt6 under GPLv3 and Qt under its open-source terms.
+py7zr, multivolumefile, inflate64, pybcj and pyppmd use LGPL-2.1-or-later.
+Other dependencies retain their own licenses. A binary distribution includes
+the exact component inventory and complete collected license texts in legal/.
+
+Source repository: https://github.com/GiancaGIS/ApeArchivesExtractor
+For the source corresponding to a binary, download the source companion
+archive published alongside that binary. See SOURCES.md for details.
