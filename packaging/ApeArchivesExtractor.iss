@@ -29,7 +29,11 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\src\apearchivesextractor\assets\apearchivesextractor_app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
+#ifdef DevelopmentBuild
 LicenseFile=..\LICENSE
+#else
+LicenseFile=..\dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated\INSTALLER_LICENSE.txt
+#endif
 InfoAfterFile=..\SOURCES.md
 
 [Languages]
@@ -40,7 +44,7 @@ Name: "desktopicon"; Description: "Crea icona sul desktop"; GroupDescription: "C
 Name: "setdefault"; Description: "Prova a impostare ApeArchivesExtractor come app predefinita per ZIP, 7Z, RAR e volumi"; GroupDescription: "Associazioni file:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\ApeArchivesExtractor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\dist\ApeArchivesExtractor\*"; DestDir: "{app}"; Excludes: "*.pdb,*.lib,*.exp"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\scripts\register_file_associations.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\scripts\register_windows11_context_menu.ps1"; DestDir: "{app}"; Flags: ignoreversion
 

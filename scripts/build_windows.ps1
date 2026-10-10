@@ -4,9 +4,11 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
-python -m venv .venv
-
 $python = Join-Path $root ".venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    python -m venv .venv
+    if ($LASTEXITCODE -ne 0) { throw "Creazione ambiente Python fallita." }
+}
 
 & $python -m pip install --upgrade pip
 if ($LASTEXITCODE -ne 0) { throw "Aggiornamento pip fallito." }

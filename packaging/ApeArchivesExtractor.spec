@@ -48,8 +48,9 @@ a = Analysis(
 )
 # PDF rendering is unused by the archive manager. Avoid bundling PDFium and its
 # unrelated dependency tree through Qt's automatic image-plugin collection.
+# The Widgets interface uses raster painting, so software OpenGL is unused too.
 a.binaries = [entry for entry in a.binaries if Path(entry[0]).name.lower()
-              not in {"qpdf.dll", "libqpdf.dylib", "libqpdf.so", "qt6pdf.dll", "libqt6pdf.6.dylib"}
+              not in {"qpdf.dll", "libqpdf.dylib", "libqpdf.so", "qt6pdf.dll", "libqt6pdf.6.dylib", "opengl32sw.dll"}
               and "QtPdf.framework" not in entry[0]
               and not Path(entry[0]).name.startswith("libQt6Pdf.so")]
 legal_output = collect(project_root, a, initial_source_snapshot)

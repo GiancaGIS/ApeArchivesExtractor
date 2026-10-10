@@ -175,22 +175,44 @@ def prepare(bundle: Path) -> Path:
             add("LLVM", llvm_version, f"https://releases.llvm.org/{llvm_version}/llvm-{llvm_version}.src.tar.xz", None)
         # Preserve Microsoft's original license document as well as readable text.
         # This does not establish the distributor's entitlement under those terms.
-        url = "https://visualstudio.microsoft.com/wp-content/uploads/2021/09/Visual-C-Runtime-2015-2022-License-1.docx"
-        document = download(url, cache, None)
-        directory = legal / "native" / "microsoft-runtime"
-        directory.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(document, directory / document.name)
-        with zipfile.ZipFile(document) as archive:
-            body = ET.fromstring(archive.read("word/document.xml"))
-        namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-        paragraphs = ["".join(t.text or "" for t in p.findall(".//w:t", namespace))
-                      for p in body.findall(".//w:p", namespace)]
-        (directory / "LICENSE.txt").write_text("Source: " + url + "\n\n" + "\n".join(paragraphs) + "\n", encoding="utf-8")
-        records.append({"name": "Microsoft Visual C++ runtime license", "version": "2015-2022",
-                        "artifact_kind": "license-document", "url": url, "filename": document.name,
-                        "sha256": digest(document), "upstream_sha256_verified": False,
-                        "notice_files": ["native/microsoft-runtime/LICENSE.txt", "native/microsoft-runtime/" + document.name]})
-        archives.append(document)
+        runtime_info = legal / "windows-runtime.json"
+        series = json.loads(runtime_info.read_text(encoding="utf-8-sig"))["license_series"] if runtime_info.exists() else "2022"
+        urls = [
+            ("Microsoft Visual C++ runtime license", "2015-2022", "microsoft-runtime",
+             "https://visualstudio.microsoft.com/wp-content/uploads/2021/09/Visual-C-Runtime-2015-2022-License-1.docx"),
+        ]
+        if series == "2026":
+            urls.extend([
+                ("Microsoft Visual C++ runtime license", "2026", "microsoft-runtime-2026",
+                 "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx"),
+                ("Microsoft Visual Studio Community license", "2026", "microsoft-community-2026",
+                 "https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual_Studio_2026-License-Community_ENU.docx"),
+            ])
+        for name, version, folder, url in urls:
+            document = download(url, cache, None)
+            directory = legal / "native" / folder
+            directory.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(document, directory / document.name)
+            with zipfile.ZipFile(document) as archive:
+                body = ET.fromstring(archive.read("word/document.xml"))
+            namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+            paragraphs = ["".join(t.text or "" for t in p.findall(".//w:t", namespace))
+                          for p in body.findall(".//w:p", namespace)]
+            (directory / "LICENSE.txt").write_text("Source: " + url + "\n\n" + "\n".join(paragraphs) + "\n", encoding="utf-8")
+            records.append({"name": name, "version": version, "artifact_kind": "license-document", "url": url,
+                            "filename": document.name, "sha256": digest(document), "upstream_sha256_verified": False,
+                            "notice_files": [f"native/{folder}/LICENSE.txt", f"native/{folder}/" + document.name]})
+            archives.append(document)
+        runtime_folder = "microsoft-runtime-2026" if series == "2026" else "microsoft-runtime"
+        installer_license = (legal / "LICENSE").read_text(encoding="utf-8")
+        installer_license += (
+            "\n\nMICROSOFT VISUAL C++ RUNTIME\n\n"
+            "The application includes unmodified Microsoft Visual C++ runtime DLLs.\n"
+            "The following Microsoft terms apply to those runtime files only.\n"
+            "ApeArchivesExtractor and its open-source components retain their respective licenses.\n\n"
+            + (legal / "native" / runtime_folder / "LICENSE.txt").read_text(encoding="utf-8")
+        )
+        (legal / "INSTALLER_LICENSE.txt").write_text(installer_license, encoding="utf-8")
 
     # Copy final binary hashes (macOS install names or UPX can change the wheel's bytes).
     for binary in inventory["binaries"]:

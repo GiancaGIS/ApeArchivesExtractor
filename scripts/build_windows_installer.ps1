@@ -19,14 +19,24 @@ if (-not $SkipBuild) {
 }
 
 $python = Join-Path $root ".venv\Scripts\python.exe"
-if (-not $SkipBuild) {
-    & $python scripts\prepare_release_sources.py
-    if ($LASTEXITCODE -ne 0) { throw "Preparazione sorgenti e licenze fallita." }
+if (-not (Test-Path -LiteralPath $python -PathType Leaf)) {
+    throw "Python del progetto non trovato: $python. Esegui prima scripts\build_windows.ps1."
 }
-& $python scripts\check_release.py
-if ($LASTEXITCODE -ne 0) {
-    if (-not $DevelopmentBuild) { throw "Verifica release incompleta. Consulta RELEASE_CHECKLIST.md; il portable locale resta disponibile." }
+$portable = Join-Path $root "dist\ApeArchivesExtractor\ApeArchivesExtractor.exe"
+if (-not (Test-Path -LiteralPath $portable -PathType Leaf)) {
+    throw "Eseguibile portabile non trovato: $portable. Esegui prima scripts\build_windows.ps1."
+}
+if ($DevelopmentBuild) {
     Write-Warning "Installer locale di sviluppo: materiale di release non ancora verificato. Non pubblicarlo."
+} else {
+    if (-not $SkipBuild) {
+        & $python scripts\prepare_release_sources.py
+        if ($LASTEXITCODE -ne 0) { throw "Preparazione sorgenti e licenze fallita." }
+    }
+    & $python scripts\check_release.py
+    if ($LASTEXITCODE -ne 0) {
+        throw "Verifica release incompleta. Consulta RELEASE_CHECKLIST.md; per un installer locale usa -SkipBuild -DevelopmentBuild."
+    }
 }
 
 $isccCommand = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
@@ -47,20 +57,26 @@ if (-not $isccPath) {
 }
 
 if (-not $isccPath) {
-    Write-Warning "Build PyInstaller completata, ma Inno Setup 6 non e' installato o non e' nel PATH."
-    Write-Warning "Installa Inno Setup 6 e rilancia: .\scripts\build_windows_installer.ps1"
-    Write-Host "Exe portabile disponibile in: dist\ApeArchivesExtractor\ApeArchivesExtractor.exe"
-    exit 0
+    throw "Inno Setup 6 non trovato. Installalo e rilancia lo script con -SkipBuild. Exe portabile disponibile in: $portable"
 }
 
 $compilerArgs = @("packaging\ApeArchivesExtractor.iss")
 if ($DevelopmentBuild) { $compilerArgs = @("/DDevelopmentBuild") + $compilerArgs }
-& $isccPath @compilerArgs
+& $isccPath @compilerArgs | Tee-Object -Variable compilerOutput
+if ($LASTEXITCODE -ne 0 -and ($compilerOutput -match 'EndUpdateResource failed')) {
+    Write-Warning "Aggiornamento risorse Windows fallito. Riprovo la compilazione una volta."
+    Start-Sleep -Seconds 1
+    & $isccPath @compilerArgs
+}
 if ($LASTEXITCODE -ne 0) { throw "Compilazione installer Inno Setup fallita." }
 
-$installer = Get-ChildItem -Path (Join-Path $root "dist") -Filter "ApeArchivesExtractorSetup-*.exe" |
-    Sort-Object LastWriteTime -Descending |
-    Select-Object -First 1
-if (-not $installer) { throw "Installer compilato ma non trovato nella cartella dist." }
+$suffix = if ($DevelopmentBuild) { "-development" } else { "" }
+$definition = Get-Content -LiteralPath (Join-Path $root "packaging\ApeArchivesExtractor.iss") -Raw
+$version = [regex]::Match($definition, '(?m)^#define MyAppVersion "([^"]+)"').Groups[1].Value
+if (-not $version) { throw "Versione installer non trovata in packaging\ApeArchivesExtractor.iss." }
+$installerPath = Join-Path $root "dist\ApeArchivesExtractorSetup-$version$suffix.exe"
+if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+    throw "Installer compilato ma non trovato: $installerPath"
+}
 
-Write-Host "Installer creato in: $($installer.FullName)"
+Write-Host "Installer creato in: $installerPath"

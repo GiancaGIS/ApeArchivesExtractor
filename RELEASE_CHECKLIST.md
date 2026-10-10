@@ -11,7 +11,10 @@ Before publishing any binary:
    `legal/build-environment.txt` to record the environment; also record the Git
    tag/commit in the release notes. Rebuild an old release when its legal files
    were omitted: changing only the repository license does not update that binary.
-2. Run `python scripts/prepare_release_sources.py` after the portable build and
+2. Run `python scripts/verify_release_provenance.py` to check native bytes against
+   the published wheels, official CPython payload and the Visual Studio release
+   CRT. This produces `legal/binary-provenance.json`; it does not approve the
+   release or assert ownership. Then run `python scripts/prepare_release_sources.py` after the portable build and
    before compiling the installer. Its output must accompany the binary online.
 3. Review `legal/component-manifest.json` against the delivered files, including
    native libraries and plugins. Qt attributions and source archives include
@@ -50,7 +53,9 @@ Before publishing any binary:
    `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows_installer.ps1 -SkipBuild`.
    `-SkipBuild` preserves the reviewed material instead of clearing it with a new
    build. For local installer testing only, also pass `-DevelopmentBuild`; that
-   produces a visibly marked development installer even when review is pending.
+   produces a visibly marked development installer and skips source preparation
+   and release verification. Double-clicking `build_installer.bat` without
+   arguments also selects development mode.
    Review the final installer contents as well.
 9. Upload the source companion next to the binary and put an explicit download
    link in the release notes. Keep both available. Existing GitHub release assets

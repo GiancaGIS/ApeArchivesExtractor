@@ -113,3 +113,45 @@ if (-not (Test-Path -LiteralPath $output -PathType Leaf)) {
 }
 
 Write-Host "Shell extension Windows 11 compilata: $output"
+
+# Explorer loads this DLL without the PyInstaller/Qt DLL search paths. Ship the
+# release CRT beside it so registration works without a machine-wide VC install.
+if ($Configuration -eq "Release") {
+    $visualStudioRoot = (Resolve-Path (Join-Path (Split-Path -Parent $msbuild) "..\..\..")).Path
+    $redistRoot = Join-Path $visualStudioRoot "VC\Redist\MSVC"
+    $redistVersion = Get-ChildItem -LiteralPath $redistRoot -Directory |
+        Where-Object { $_.Name -match '^\d+\.\d+\.\d+$' } |
+        Sort-Object { [version]$_.Name } -Descending |
+        Select-Object -First 1
+    if (-not $redistVersion) { throw "Runtime C++ redistribuibile non trovato in $redistRoot" }
+    $runtimeDir = Get-ChildItem -LiteralPath (Join-Path $redistVersion.FullName $Platform) -Directory |
+        Where-Object { $_.Name -match '^Microsoft\.VC\d+\.CRT$' } |
+        Select-Object -First 1
+    if (-not $runtimeDir) { throw "Runtime C++ $Platform non trovato." }
+    $bundleRoot = Split-Path -Parent $output
+    $runtimeSeries = if ([version]$redistVersion.Name -ge [version]"14.50") { "2026" } else { "2022" }
+    $records = @()
+    foreach ($file in Get-ChildItem -LiteralPath $runtimeDir.FullName -Filter "*.dll") {
+        $destinations = @($bundleRoot, (Join-Path $bundleRoot "_internal"), (Join-Path $bundleRoot "_internal\PyQt6\Qt6\bin"))
+        foreach ($directory in $destinations) {
+            $destination = Join-Path $directory $file.Name
+            if ($directory -ne $bundleRoot -and -not (Test-Path -LiteralPath $destination -PathType Leaf)) { continue }
+            Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+            $records += [ordered]@{
+                path = $destination.Substring($bundleRoot.Length + 1).Replace("\", "/")
+                source = $file.FullName
+                sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                version = $file.VersionInfo.FileVersion
+            }
+        }
+    }
+    $legalDir = Join-Path $root "dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated"
+    [ordered]@{
+        visual_studio = $visualStudioRoot
+        runtime_version = $redistVersion.Name
+        license_series = $runtimeSeries
+        redistribution_terms = "https://learn.microsoft.com/en-us/visualstudio/releases/$runtimeSeries/redistribution"
+        files = $records
+    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $legalDir "windows-runtime.json") -Encoding UTF8
+    Write-Host "Runtime C++ redistribuibile incluso: $($redistVersion.Name)"
+}
