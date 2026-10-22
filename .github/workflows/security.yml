@@ -1,0 +1,105 @@
+name: Security regression
+
+on:
+  pull_request:
+  push:
+    branches: [main, master, develop]
+  schedule:
+    - cron: '17 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows / Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.14']
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      QT_QPA_PLATFORM: offscreen
+      PIP_DISABLE_PIP_VERSION_CHECK: '1'
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: x64
+
+      - name: Prepare test and build dependencies
+        run: |
+          python -m venv .venv-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-build/Scripts/python -m pip install --upgrade pip 'setuptools>=77' wheel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-build/Scripts/python -m pip install --no-build-isolation -e '.[dev,package]'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-build/Scripts/python -m pip check
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Record exact installed dependencies
+        id: dependencies
+        run: |
+          New-Item -ItemType Directory -Path build -Force | Out-Null
+          # Export transitive, test and build dependencies, excluding only our
+          # editable project, which has no third-party advisory record on PyPI.
+          .venv-build/Scripts/python -m pip freeze --all --exclude apearchivesextractor |
+            Set-Content -LiteralPath build/audit-requirements.txt -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-build/Scripts/python -m pip inspect > build/dependency-inventory.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Regression and hostile archive cases
+        run: >-
+          .venv-build/Scripts/python -m pytest -q -p no:cacheprovider
+          --basetemp build/pytest-security --junitxml=build/pytest-results.xml
+          --durations=15
+
+      - name: Dependency advisory audit
+        if: ${{ always() && steps.dependencies.outcome == 'success' }}
+        run: |
+          # Keep the auditor's own dependencies outside the environment audited.
+          python -m venv .venv-audit
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-audit/Scripts/python -m pip install 'pip-audit==2.10.1'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .venv-audit/Scripts/python -m pip_audit -r build/audit-requirements.txt --no-deps --disable-pip --strict --progress-spinner off -f json -o build/pip-audit.json
+          $dependencyAuditExit = $LASTEXITCODE
+          if (Test-Path -LiteralPath build/pip-audit.json) {
+            $report = Get-Content -LiteralPath build/pip-audit.json -Raw | ConvertFrom-Json
+            foreach ($dependency in $report.dependencies) {
+              foreach ($vulnerability in $dependency.vulns) {
+                $fixedVersions = $vulnerability.fix_versions -join ', '
+                if (-not $fixedVersions) { $fixedVersions = 'no fixed version reported' }
+                Write-Host "$($dependency.name) $($dependency.version): $($vulnerability.id) | fix: $fixedVersions"
+              }
+            }
+          }
+          exit $dependencyAuditExit
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: ${{ always() }}
+        with:
+          name: security-reports-windows-python-${{ matrix.python-version }}
+          path: |
+            build/pytest-results.xml
+            build/audit-requirements.txt
+            build/dependency-inventory.json
+            build/pip-audit.json
+          if-no-files-found: warn
+          retention-days: 30

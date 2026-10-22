@@ -383,6 +383,25 @@ the usual Apple code-signing and notarization steps.
 
 ## Security
 
+The [Security regression workflow](.github/workflows/security.yml) runs on pull
+requests, pushes to `main`, `master` and `develop`, every Monday at 07:17 UTC,
+and manually from GitHub Actions. It runs the test suite on Windows with Python
+3.11 and 3.14, including the hostile archive and packaging regression cases.
+
+Each job exports its exact installed dependencies and checks them with
+[`pip-audit`](https://github.com/pypa/pip-audit), including transitive dependencies
+and test/build tools. The auditor runs in a separate environment. Known
+vulnerabilities or audit errors fail the job; there are no advisory exclusions
+or automatic fixes. Test results, the dependency inventory, pinned requirements
+and the audit report are retained as workflow artifacts for 30 days, including
+when a test or audit fails. Dependabot proposes weekly updates for Python
+dependencies and GitHub Actions.
+
+This checks known advisories for the package versions resolved in CI. It does
+not replace review of native libraries embedded in wheels, external RAR tools,
+or dependencies in an older packaged release. Scheduled workflows run from the
+repository's default branch, so the workflow must be present there to run weekly.
+
 ApeArchivesExtractor validates archive member paths before extraction and blocks unsafe paths such as:
 
 ```text
