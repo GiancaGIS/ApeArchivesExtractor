@@ -56,7 +56,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows_inst
 This requires [Inno Setup 6](https://jrsoftware.org/isinfo.php). The generated installer is:
 
 ```text
-dist\ApeArchivesExtractorSetup-1.0.3.exe
+dist\ApeArchivesExtractorSetup-1.1.0.exe
 ```
 
 The installer includes the collected license texts. The build prepares the

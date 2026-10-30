@@ -10,7 +10,7 @@
   <Identity
     Name="GiancaGIS.ApeArchivesExtractor"
     Publisher="CN=GiancaGIS"
-    Version="1.0.3.0"
+    Version="1.1.0.0"
     ProcessorArchitecture="neutral" />
   <Properties>
     <DisplayName>ApeArchivesExtractor</DisplayName>

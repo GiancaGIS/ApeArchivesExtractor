@@ -24,9 +24,9 @@ def release(tag="v1.10.0", **changes):
 
 @pytest.mark.parametrize("tag,current,expected", [
     ("1.10.0", "1.9.0", "1.10.0"), ("v2.0.0", "1.9.0", "2.0.0"),
-    ("1.0.3", "1.0.3", None), ("1.0.2", "1.0.3", None),
-    ("1.0.3.0", "1.0.3", None), ("2.0.0rc1", "1.0.3", None),
-    ("2.0.0.dev1", "1.0.3", None), ("2.0.0", "2.0.0rc1", "2.0.0"),
+    ("1.1.0", "1.1.0", None), ("1.0.2", "1.1.0", None),
+    ("1.1.0.0", "1.1.0", None), ("2.0.0rc1", "1.1.0", None),
+    ("2.0.0.dev1", "1.1.0", None), ("2.0.0", "2.0.0rc1", "2.0.0"),
 ], ids=["newer-minor", "v-prefix", "same", "older", "equivalent", "rc", "dev", "stable-after-rc"])
 def test_release_version_comparison(tag, current, expected):
     result = newer_release(release(tag), current)

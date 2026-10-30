@@ -8,7 +8,7 @@ from pathlib import Path
 
 block_cipher = None
 app_name = "ApeArchivesExtractor"
-app_version = "1.0.3"
+app_version = "1.1.0"
 bundle_identifier = "com.giancagis.apearchivesextractor"
 is_windows = sys.platform.startswith("win")
 is_macos = sys.platform == "darwin"

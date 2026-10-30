@@ -1,5 +1,5 @@
 #define MyAppName "ApeArchivesExtractor"
-#define MyAppVersion "1.0.3"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "GiancaGIS"
 #define MyAppExeName "ApeArchivesExtractor.exe"
 #if FileExists(SourcePath + "..\dist\ApeArchivesExtractor\ApeArchivesExtractorShellExtension.dll")
