@@ -123,9 +123,11 @@ def prepare(bundle: Path) -> Path:
                         "notice_files": [f"native/{slug(name)}/{p}" for p in notices]})
         archives.append(archive)
 
+    binding_versions = set()
     for component in inventory["components"]:
-        if slug(component["name"]) == "pyqt6-qt6":
-            continue  # This distribution has wheels only; mirror Qt's actual sources below.
+        if slug(component["name"]).startswith(("pyside6", "shiboken6")):
+            binding_versions.add(component["version"])
+            continue  # PySide6 and Shiboken6 sources are published by Qt, not as PyPI sdists.
         data = json.loads(read_url(component["source_metadata"]))
         sdists = [f for f in data["urls"] if f["packagetype"] == "sdist"]
         if not sdists:
@@ -133,7 +135,13 @@ def prepare(bundle: Path) -> Path:
         source = sdists[0]
         add(component["name"], component["version"], source["url"], source["digests"]["sha256"])
 
-    qt = next(c["version"] for c in inventory["components"] if slug(c["name"]) == "pyqt6-qt6")
+    for version in sorted(binding_versions):
+        url = ("https://download.qt.io/official_releases/QtForPython/pyside6/"
+               f"PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz")
+        checksum = read_url(url + ".sha256").decode("ascii").split()[0]
+        add("QtForPython", version, url.replace("https://download.qt.io/", "https://master.qt.io/"), checksum)
+
+    qt = inventory["qt_version"]
     minor = ".".join(qt.split(".")[:2])
     modules = {"qtbase", "qtsvg", "qtimageformats", "qttranslations"}
     if any("Qt6Pdf" in b["path"] for b in inventory["binaries"]):

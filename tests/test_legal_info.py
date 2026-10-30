@@ -21,16 +21,16 @@ def test_license_sections_use_bundled_inventory_and_preserve_nested_notices(tmp_
     (generated / "THIRD_PARTY_NOTICES.md").write_text("third-party notices")
     (generated / "SOURCES.md").write_text("build instructions")
     (generated / "component-manifest.json").write_text(json.dumps({
-        "application_version": "1.0.2", "python_version": "3.14.5",
-        "components": [{"name": "PyQt6", "version": "6.11", "license": "GPL-3.0-only"}],
+        "application_version": "1.0.3", "python_version": "3.14.5",
+        "components": [{"name": "PySide6_Essentials", "version": "6.11", "license": "LGPL-3.0-only OR GPL-3.0-only"}],
     }))
     (generated / "source-manifest.json").write_text(json.dumps({"sources": [{
         "name": "Qt", "version": "6.11", "filename": "qt.tar.xz",
         "url": "https://example.org/qt.tar.xz", "sha256": "abc123",
     }]}))
-    qt = generated / "licenses/pyqt6"
+    qt = generated / "licenses/pyside6-essentials"
     qt.mkdir(parents=True)
-    (qt / "LICENSE").write_text("PyQt copyright and GPL terms")
+    (qt / "LICENSE").write_text("PySide copyright and LGPL terms")
     native = generated / "native/qtbase"
     native.mkdir(parents=True)
     (native / "MIT.txt").write_text("native copyright and MIT terms")
@@ -42,9 +42,9 @@ def test_license_sections_use_bundled_inventory_and_preserve_nested_notices(tmp_
 
     assert sections["legal.program"] == "bundled GPLv3"
     assert sections["legal.source_code"] == "build instructions"
-    assert "PyQt copyright and GPL terms" in sections["Qt / PyQt6"]
-    assert "native copyright and MIT terms" in sections["Qt / PyQt6"]
-    assert "PyQt6 6.11" in sections["legal.versions"]
+    assert "PySide copyright and LGPL terms" in sections["Qt / PySide6"]
+    assert "native copyright and MIT terms" in sections["Qt / PySide6"]
+    assert "PySide6_Essentials 6.11" in sections["legal.versions"]
     assert "SHA-256: abc123" in sections["legal.source_archives"]
     assert "ignored" not in "\n".join(sections.values())
     assert "fallback license" not in sections.values()
@@ -60,7 +60,7 @@ def test_source_installation_includes_build_instructions() -> None:
 def test_license_dialog_lists_topics_and_switches_text_without_invalid_index() -> None:
     # Existing tests create QCoreApplication; a fresh process is needed for QWidget.
     code = """
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication
 from apearchivesextractor.gui.licenses_dialog import LicensesDialog
 app = QApplication([])
 for language, label in [('it', 'Licenza del programma (GPLv3)'), ('en', 'Program license (GPLv3)')]:

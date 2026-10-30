@@ -8,8 +8,8 @@ import sys
 import time
 import uuid
 
-from PyQt6.QtCore import QCoreApplication
-from PyQt6.QtNetwork import QLocalServer
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtNetwork import QLocalServer
 
 from apearchivesextractor.gui import instance_coordinator
 from apearchivesextractor.gui.instance_coordinator import MAX_REQUEST_BYTES, InstanceCoordinator

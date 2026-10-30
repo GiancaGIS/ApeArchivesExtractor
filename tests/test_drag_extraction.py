@@ -94,17 +94,17 @@ def test_drag_qt_integration_exports_selected_urls_and_keeps_gui_responsive(tmp_
     code = r'''
 import shutil, sys, tempfile, zipfile
 from pathlib import Path
-from PyQt6.QtCore import QEvent, QPointF, QSettings, QTimer, Qt
-from PyQt6.QtGui import QMouseEvent
-from PyQt6.QtTest import QTest
-from PyQt6.QtWidgets import QApplication, QMessageBox, QTreeWidget
+from PySide6.QtCore import QEvent, QPointF, QSettings, QTimer, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QApplication, QMessageBox, QTreeWidget
 from apearchivesextractor.archive_service import ArchiveService
 from apearchivesextractor.gui.main_window import MainWindow
 from apearchivesextractor.gui import archive_tree
+from apearchivesextractor.gui import settings as settings_module
 
 root = Path(sys.argv[1])
-QSettings.setDefaultFormat(QSettings.Format.IniFormat)
-QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(root / 'settings'))
+settings_module.QSettings = lambda *_: QSettings(str(root / 'settings.ini'), QSettings.Format.IniFormat)
 app = QApplication([])
 window = MainWindow()
 window.show()

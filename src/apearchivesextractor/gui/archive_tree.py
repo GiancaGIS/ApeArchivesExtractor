@@ -7,9 +7,9 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from PyQt6.QtCore import QMimeData, QUrl, Qt
-from PyQt6.QtGui import QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon
-from PyQt6.QtWidgets import QApplication, QHeaderView, QStyle, QTreeWidget, QTreeWidgetItem
+from PySide6.QtCore import QMimeData, QUrl, Qt
+from PySide6.QtGui import QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon
+from PySide6.QtWidgets import QApplication, QHeaderView, QStyle, QTreeWidget, QTreeWidgetItem
 
 from apearchivesextractor.gui.i18n import DEFAULT_LANGUAGE, normalize_language, translate
 from apearchivesextractor.models import ArchiveEntry

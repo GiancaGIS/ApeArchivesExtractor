@@ -8,7 +8,7 @@ from pathlib import Path
 
 block_cipher = None
 app_name = "ApeArchivesExtractor"
-app_version = "1.0.2"
+app_version = "1.0.3"
 bundle_identifier = "com.giancagis.apearchivesextractor"
 is_windows = sys.platform.startswith("win")
 is_macos = sys.platform == "darwin"
@@ -19,7 +19,7 @@ initial_source_snapshot = source_snapshot(project_root)
 src_root = project_root / "src"
 entry_point = src_root / "apearchivesextractor" / "gui" / "app.py"
 
-hiddenimports = collect_submodules("py7zr")
+hiddenimports = collect_submodules("py7zr") + ["apearchivesextractor.cli"]
 datas = collect_data_files("apearchivesextractor")
 assets_dir = project_root / "src" / "apearchivesextractor" / "assets"
 app_icon = assets_dir / ("apearchivesextractor_app.icns" if is_macos else "apearchivesextractor_app.ico")
@@ -40,7 +40,8 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=["PyQt5", "PyQt6", "PySide2", "PySide6.QtPdf", "PySide6.QtPdfWidgets",
+              "PySide6.QtWebEngineCore", "PySide6.QtWebEngineQuick", "PySide6.QtWebEngineWidgets"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
@@ -76,8 +77,19 @@ exe = EXE(
     entitlements_file=None,
     **exe_options,
 )
+executables = [exe]
+if is_windows:
+    # Reuse the analyzed modules and runtime hooks with a console entry point.
+    # Keep the GUI script out of the console executable's startup scripts.
+    cli_scripts = [script for script in a.scripts if Path(script[1]).resolve() != entry_point.resolve()]
+    cli_scripts.append(("cli_entry", str(project_root / "packaging" / "cli_entry.py"), "PYSOURCE"))
+    executables.append(EXE(
+        pyz, cli_scripts, [], exclude_binaries=True, name="ape-arch",
+        debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
+        console=True, **exe_options,
+    ))
 coll = COLLECT(
-    exe,
+    *executables,
     a.binaries,
     a.zipfiles,
     a.datas,

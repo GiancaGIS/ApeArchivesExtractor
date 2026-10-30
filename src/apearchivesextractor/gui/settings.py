@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Iterable
 
-from PyQt6.QtCore import QByteArray, QSettings
+from PySide6.QtCore import QByteArray, QSettings
 
 from apearchivesextractor.gui.i18n import DEFAULT_LANGUAGE, normalize_language
 
@@ -71,6 +71,12 @@ class AppSettings:
 
     def set_language(self, language: str) -> None:
         self._settings.setValue("ui/language", normalize_language(language))
+
+    def check_updates_on_startup(self) -> bool:
+        return bool(self._settings.value("updates/check_on_startup", True, type=bool))
+
+    def set_check_updates_on_startup(self, enabled: bool) -> None:
+        self._settings.setValue("updates/check_on_startup", enabled)
 
     def recent_archives(self) -> list[Path]:
         raw = self._settings.value("recent/archives", "[]")

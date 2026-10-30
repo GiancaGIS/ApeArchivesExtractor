@@ -22,7 +22,8 @@ from check_release import check
 
 def test_collector_copies_actual_component_notices_without_unrelated_test_tools(tmp_path: Path) -> None:
     for name in ("LICENSE", "NOTICE", "SOURCES.md", "pyproject.toml"):
-        (tmp_path / name).write_bytes(Path(name).read_bytes())
+        source = Path("src/apearchivesextractor/legal/NOTICE.txt") if name == "NOTICE" else Path(name)
+        (tmp_path / name).write_bytes(source.read_bytes())
     analysis = SimpleNamespace(pure=[("py7zr", importlib.util.find_spec("py7zr").origin, "PYMODULE")], binaries=[])
     output = collect(tmp_path, analysis)
     manifest = json.loads((output / "component-manifest.json").read_text())
@@ -41,6 +42,22 @@ def test_canonical_spdx_license_directory_is_collected() -> None:
     assert legal_file("qtbase/LICENSES/BSD-3-Clause.txt")
     assert legal_file("module/qt_attributions.json")
     assert not legal_file("module/main.cpp")
+
+
+def test_pyside_inventory_excludes_unused_shared_namespace_distributions(tmp_path: Path) -> None:
+    for name in ("LICENSE", "SOURCES.md", "pyproject.toml"):
+        (tmp_path / name).write_bytes(Path(name).read_bytes())
+    notice = tmp_path / "src/apearchivesextractor/legal/NOTICE.txt"
+    notice.parent.mkdir(parents=True)
+    notice.write_bytes(Path("src/apearchivesextractor/legal/NOTICE.txt").read_bytes())
+    analysis = SimpleNamespace(pure=[("PySide6", importlib.util.find_spec("PySide6").origin, "PYMODULE")], binaries=[])
+    output = collect(tmp_path, analysis)
+    manifest = json.loads((output / "component-manifest.json").read_text())
+    names = {c["name"].lower().replace("_", "-") for c in manifest["components"]}
+    assert "pyside6-essentials" in names
+    assert not names.intersection({"pyside6-addons", "pyside6-webengine", "pyside6-pdf"})
+    assert manifest["qt_version"]
+    assert "PySide6" in (output / "NOTICE").read_text(encoding="utf-8")
 
 
 def test_build_rejects_sources_changed_during_analysis(tmp_path: Path) -> None:

@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
+from PySide6.QtCore import QObject, Signal, Slot
 
 from apearchivesextractor.archive_service import ArchiveService
 from apearchivesextractor.errors import OperationCancelledError
@@ -23,11 +23,11 @@ _PROGRESS_EMIT_INTERVAL_SECONDS = 0.08
 class ArchiveWorker(QObject):
     """Run archive operations outside the GUI thread."""
 
-    progress = pyqtSignal(str, str, object, object)
-    result = pyqtSignal(object)
-    cancelled = pyqtSignal()
-    error = pyqtSignal(str, str)
-    finished = pyqtSignal()
+    progress = Signal(str, str, object, object)
+    result = Signal(object)
+    cancelled = Signal()
+    error = Signal(str, str)
+    finished = Signal()
 
     def __init__(self, operation: str, *args: Any, **kwargs: Any) -> None:
         super().__init__()
@@ -68,7 +68,7 @@ class ArchiveWorker(QObject):
         self._last_progress_message = message
         return True
 
-    @pyqtSlot()
+    @Slot()
     def run(self) -> None:
         try:
             if self.operation == "list":

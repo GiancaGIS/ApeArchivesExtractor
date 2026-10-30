@@ -35,4 +35,4 @@ if (Test-Path -LiteralPath $sparsePackageScript -PathType Leaf) {
 }
 
 Write-Host "Build locale completata. Output: dist\ApeArchivesExtractor"
-Write-Host "Prima di distribuire: esegui scripts\prepare_release_sources.py e segui RELEASE_CHECKLIST.md."
+Write-Host "Prima di distribuire: esegui scripts\prepare_release_sources.py e segui docs/BUILDING.md."

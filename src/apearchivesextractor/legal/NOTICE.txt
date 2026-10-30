@@ -5,7 +5,7 @@ You may redistribute and modify this program under the terms of that license.
 This program comes with NO WARRANTY, to the extent permitted by law.
 The full license is included in LICENSE.txt.
 
-This application uses PyQt6 under GPLv3 and Qt under its open-source terms.
+This application uses PySide6, Shiboken6 and Qt under their open-source terms.
 py7zr, multivolumefile, inflate64, pybcj and pyppmd use LGPL-2.1-or-later.
 Other dependencies retain their own licenses. A binary distribution includes
 the exact component inventory and complete collected license texts in legal/.

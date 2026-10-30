@@ -5,6 +5,7 @@
 #include <shobjidl.h>
 #include <shlwapi.h>
 #include <strsafe.h>
+#include "ArchiveProperties.h"
 
 #include <algorithm>
 #include <cwctype>
@@ -469,7 +470,8 @@ extern "C" BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID) {
 }
 
 STDAPI DllCanUnloadNow() {
-    return (g_object_count == 0 && g_lock_count == 0) ? S_OK : S_FALSE;
+    return (InterlockedCompareExchange(&g_object_count, 0, 0) == 0 &&
+            InterlockedCompareExchange(&g_lock_count, 0, 0) == 0) ? S_OK : S_FALSE;
 }
 
 STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** object) {
@@ -478,6 +480,9 @@ STDAPI DllGetClassObject(REFCLSID clsid, REFIID riid, void** object) {
     }
     *object = nullptr;
 
+    if (IsEqualGUID(clsid, archive_properties::ClassId)) {
+        return archive_properties::GetClassObject(riid, object, g_module, &g_object_count);
+    }
     const CommandInfo* command = FindCommand(clsid);
     if (command == nullptr) {
         return CLASS_E_CLASSNOTAVAILABLE;

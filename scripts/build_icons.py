@@ -12,9 +12,9 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, QSize, Qt
-from PyQt6.QtGui import QGuiApplication, QImage, QPainter
-from PyQt6.QtSvg import QSvgRenderer
+from PySide6.QtCore import QByteArray, QBuffer, QIODevice, QSize, Qt
+from PySide6.QtGui import QGuiApplication, QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
 
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 ICNS_ENTRIES = (
@@ -108,6 +108,11 @@ def main() -> int:
         ico_path = assets_dir / output_names[0]
         write_ico(svg_path, ico_path)
         print(f"Generata icona: {ico_path}")
+        if svg_name == "apearchivesextractor_icon.svg":
+            png_path = root / "docs" / "assets" / "app-icon.png"
+            png_path.parent.mkdir(parents=True, exist_ok=True)
+            png_path.write_bytes(render_svg_to_png(svg_path, 512))
+            print(f"Generato logo README: {png_path}")
         if sys.platform == "darwin":
             icns_path = assets_dir / output_names[1]
             write_icns(svg_path, icns_path)

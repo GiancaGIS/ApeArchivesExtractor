@@ -132,7 +132,7 @@ if ($Configuration -eq "Release") {
     $runtimeSeries = if ([version]$redistVersion.Name -ge [version]"14.50") { "2026" } else { "2022" }
     $records = @()
     foreach ($file in Get-ChildItem -LiteralPath $runtimeDir.FullName -Filter "*.dll") {
-        $destinations = @($bundleRoot, (Join-Path $bundleRoot "_internal"), (Join-Path $bundleRoot "_internal\PyQt6\Qt6\bin"))
+        $destinations = @($bundleRoot, (Join-Path $bundleRoot "_internal"), (Join-Path $bundleRoot "_internal\PySide6"))
         foreach ($directory in $destinations) {
             $destination = Join-Path $directory $file.Name
             if ($directory -ne $bundleRoot -and -not (Test-Path -LiteralPath $destination -PathType Leaf)) { continue }

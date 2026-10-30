@@ -4,19 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apearchivesextractor"
-version = "1.0.2"
-description = "A small cross-platform archive manager with CLI and PyQt6 GUI."
+version = "1.0.3"
+description = "A small cross-platform archive manager with CLI and PySide6 GUI."
 readme = "README.md"
 license = "GPL-3.0-only"
-license-files = ["LICENSE", "NOTICE"]
+license-files = ["LICENSE", "src/apearchivesextractor/legal/NOTICE.txt"]
 requires-python = ">=3.11"
 authors = [
   { name = "Gianca" }
 ]
 dependencies = [
+  "packaging>=23.2",
   "py7zr>=1.0.0",
   "multivolumefile>=0.2.3",
-  "PyQt6>=6.7.0",
+  "PySide6-Essentials>=6.7.0",
   "rarfile>=4.2"
 ]
 
@@ -29,7 +30,7 @@ package = [
 ]
 
 [project.scripts]
-apearch = "apearchivesextractor.cli:main"
+ape-arch = "apearchivesextractor.cli:main"
 apearchivesextractor = "apearchivesextractor.cli:main"
 apearchivesextractor-gui = "apearchivesextractor.gui.app:main"
 
