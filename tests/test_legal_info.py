@@ -21,7 +21,7 @@ def test_license_sections_use_bundled_inventory_and_preserve_nested_notices(tmp_
     (generated / "THIRD_PARTY_NOTICES.md").write_text("third-party notices")
     (generated / "SOURCES.md").write_text("build instructions")
     (generated / "component-manifest.json").write_text(json.dumps({
-        "application_version": "1.0.3", "python_version": "3.14.5",
+        "application_version": "1.1.0", "python_version": "3.14.5",
         "components": [{"name": "PySide6_Essentials", "version": "6.11", "license": "LGPL-3.0-only OR GPL-3.0-only"}],
     }))
     (generated / "source-manifest.json").write_text(json.dumps({"sources": [{
