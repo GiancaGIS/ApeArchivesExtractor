@@ -50,7 +50,7 @@ def test_cli_uses_short_program_name() -> None:
     parser = build_parser()
     args = parser.parse_args(["create", "output.zip", "input", "--volume-size", "100M"])
 
-    assert parser.prog == "apearch"
+    assert parser.prog == "ape-arch"
     assert args.volume_size == 100 * 1024 ** 2
     assert parser.parse_args(["create", "output.rar", "input", "--format", "rar"]).format == "rar"
 

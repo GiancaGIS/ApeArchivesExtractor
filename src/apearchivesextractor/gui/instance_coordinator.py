@@ -7,8 +7,8 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 
-from PyQt6.QtCore import QLockFile, QObject, QStandardPaths, pyqtSignal
-from PyQt6.QtNetwork import QLocalServer, QLocalSocket
+from PySide6.QtCore import QLockFile, QObject, QStandardPaths, Signal, Slot
+from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 SERVER_NAME = "GiancaGIS.ApeArchivesExtractor.Gui"
 LOCK_FILE_NAME = "GiancaGIS-ApeArchivesExtractor-Gui.lock"
@@ -18,7 +18,7 @@ MAX_REQUEST_BYTES = 1024 ** 2
 class InstanceCoordinator(QObject):
     """Forwards shell requests to the first ApeArchivesExtractor GUI process."""
 
-    request_received = pyqtSignal(dict)
+    request_received = Signal(dict)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -39,6 +39,12 @@ class InstanceCoordinator(QObject):
         return False
 
     def close(self) -> None:
+        for socket in list(self._buffers):
+            socket.readyRead.disconnect(self._socket_ready)
+            socket.disconnected.disconnect(self._socket_disconnected)
+            self._buffers.pop(socket, None)
+            socket.abort()
+            socket.deleteLater()
         self._server.close()
         if self._primary_lock.isLocked():
             self._primary_lock.unlock()
@@ -62,6 +68,7 @@ class InstanceCoordinator(QObject):
         socket.disconnectFromServer()
         return sent
 
+    @Slot()
     def _accept_connections(self) -> None:
         while self._server.hasPendingConnections():
             socket = self._server.nextPendingConnection()
@@ -69,9 +76,21 @@ class InstanceCoordinator(QObject):
                 continue
             socket.setReadBufferSize(MAX_REQUEST_BYTES + 1)
             self._buffers[socket] = bytearray()
-            socket.readyRead.connect(lambda current=socket: self._read_socket(current))
-            socket.disconnected.connect(lambda current=socket: self._discard_socket(current))
+            socket.readyRead.connect(self._socket_ready)
+            socket.disconnected.connect(self._socket_disconnected)
             self._read_socket(socket)
+
+    @Slot()
+    def _socket_ready(self) -> None:
+        socket = self.sender()
+        if isinstance(socket, QLocalSocket):
+            self._read_socket(socket)
+
+    @Slot()
+    def _socket_disconnected(self) -> None:
+        socket = self.sender()
+        if isinstance(socket, QLocalSocket):
+            self._discard_socket(socket)
 
     def _read_socket(self, socket: QLocalSocket) -> None:
         buffer = self._buffers.get(socket)

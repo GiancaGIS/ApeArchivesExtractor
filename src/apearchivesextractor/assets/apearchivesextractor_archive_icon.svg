@@ -1,29 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>ApeArchivesExtractor archive file</title>
+  <desc>An ivory archive document with a blue zipped folder and the APE bee.</desc>
   <defs>
-    <linearGradient id="paper" x1="62" y1="30" x2="198" y2="224" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="1" stop-color="#dfe7f0"/>
-    </linearGradient>
-    <linearGradient id="fold" x1="163" y1="36" x2="214" y2="88" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#f6f9fc"/>
-      <stop offset="1" stop-color="#bdc9d6"/>
-    </linearGradient>
-    <linearGradient id="folder" x1="55" y1="96" x2="188" y2="206" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#ffd56d"/>
-      <stop offset="1" stop-color="#c9851d"/>
-    </linearGradient>
-    <linearGradient id="zipper" x1="119" y1="84" x2="142" y2="217" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2f7de1"/>
-      <stop offset="1" stop-color="#1e4f9b"/>
-    </linearGradient>
+    <linearGradient id="paper" x1="100" y1="48" x2="394" y2="470" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset="1" stop-color="#eaf3fb"/></linearGradient>
+    <linearGradient id="blue" x1="100" y1="234" x2="400" y2="422" gradientUnits="userSpaceOnUse"><stop stop-color="#4486c4"/><stop offset="1" stop-color="#214a7b"/></linearGradient>
   </defs>
-  <path d="M57 28h100l45 45v133c0 13-11 24-24 24H57c-13 0-24-11-24-24V52c0-13 11-24 24-24z" fill="#1b314d" opacity=".18"/>
-  <path d="M61 24h100l45 45v133c0 13-11 24-24 24H61c-13 0-24-11-24-24V48c0-13 11-24 24-24z" fill="url(#paper)"/>
-  <path d="M161 24v36c0 7 6 13 13 13h32l-45-49z" fill="url(#fold)"/>
-  <path d="M64 112c0-11 9-20 20-20h30l11 14h47c11 0 20 9 20 20v70c0 11-9 20-20 20H84c-11 0-20-9-20-20v-84z" fill="#8f5d1a" opacity=".18"/>
-  <path d="M58 108c0-11 9-20 20-20h31c8 0 13 3 17 10l6 10h42c11 0 20 9 20 20v15H58v-35z" fill="#ffdd82"/>
-  <path d="M55 129c0-12 10-22 22-22h102c12 0 22 10 22 22v67c0 12-10 22-22 22H77c-12 0-22-10-22-22v-67z" fill="url(#folder)"/>
-  <path d="M114 107h28v111h-28z" fill="url(#zipper)"/>
-  <path d="M123 117h10v10h-10zM123 137h10v10h-10zM123 157h10v10h-10zM123 177h10v10h-10z" fill="#eef5ff"/>
-  <path d="M114 218h28l-8 16h-12l-8-16z" fill="#123c78"/>
+  <path d="M106 36h216l100 100v306a30 30 0 0 1-30 30H106a30 30 0 0 1-30-30V66a30 30 0 0 1 30-30Z" fill="url(#paper)" stroke="#aec7e0" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M322 36v74a26 26 0 0 0 26 26h74Z" fill="#d0e1f2"/>
+  <rect x="116" y="168" width="128" height="12" rx="6" fill="#aec7e0"/>
+  <rect x="116" y="194" width="84" height="12" rx="6" fill="#d0e1f2"/>
+  <path d="M126 246h90l25 26h143a22 22 0 0 1 22 22v107a22 22 0 0 1-22 22H126a22 22 0 0 1-22-22V268a22 22 0 0 1 22-22Z" fill="url(#blue)"/>
+  <path d="M218 272h48v151h-48Z" fill="#f6be43"/>
+  <path d="M231 280h11v17h-11Zm11 23h11v17h-11Zm-11 23h11v17h-11Zm11 23h11v17h-11Zm-11 23h11v17h-11Zm11 23h11v17h-11Z" fill="#234f7a"/>
+  <rect x="226" y="302" width="32" height="46" rx="10" fill="#eaf3fb"/>
+  <rect x="236" y="314" width="12" height="22" rx="5" fill="#234f7a"/>
+  <circle cx="340" cy="368" r="64" fill="#f0f6fc"/>
+  <g id="bee" transform="translate(276 342) scale(1.08) rotate(-10 50 30)">
+    <g fill="#def4f1" stroke="#2395ad" stroke-width="3.5">
+      <ellipse cx="37" cy="3" rx="14" ry="20" transform="rotate(-28 37 3)"/>
+      <ellipse cx="59" cy="3" rx="14" ry="20" transform="rotate(28 59 3)"/>
+    </g>
+    <path d="m18 26-12 9 12 9Z" fill="#234f7a"/>
+    <rect x="16" y="16" width="66" height="38" rx="19" fill="#f6be43" stroke="#234f7a" stroke-width="4"/>
+    <path d="M37 18v34M56 18v34" fill="none" stroke="#234f7a" stroke-width="8"/>
+    <path d="M88 22 91 10q2-6 8-6" fill="none" stroke="#234f7a" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="85" cy="35" r="16" fill="#234f7a"/>
+    <circle cx="90" cy="31" r="3" fill="#ffffff"/>
+  </g>
 </svg>

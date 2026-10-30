@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import json
 import sys
 from pathlib import Path
 
@@ -38,13 +39,18 @@ def _password_from_args(value: str | None) -> str | None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="apearch",
+        prog="ape-arch",
         description="Archive manager for ZIP, 7Z, RAR, TAR.GZ, and multi-volume files.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--license", action="version", version=license_notice(),
                         help="Show copyright, redistribution terms and the full GPLv3 license")
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    info_parser = subparsers.add_parser("info", help="Inspect archive metadata without extracting contents")
+    info_parser.add_argument("archive", type=Path)
+    info_parser.add_argument("--json", action="store_true", help="Print machine-readable metadata")
+    info_parser.add_argument("--language", choices=("en", "it"), default="en")
 
     list_parser = subparsers.add_parser("list", help="List archive content")
     list_parser.add_argument("archive", type=Path)
@@ -107,6 +113,15 @@ def main(argv: list[str] | None = None) -> int:
     service = ArchiveService()
 
     try:
+        if args.command == "info":
+            from apearchivesextractor.archive_info import inspect_archive, format_archive_info
+            info = inspect_archive(args.archive)
+            report = json.dumps(info.as_dict(), ensure_ascii=True, indent=2) if args.json else format_archive_info(info, args.language)
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            print(report)
+            return 1 if info.status == "error" else 0
+
         if args.command == "list":
             password = _password_from_args(args.password)
             entries = service.list_entries(args.archive, password=password)

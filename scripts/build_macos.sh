@@ -10,4 +10,4 @@ python scripts/build_icons.py
 python -m PyInstaller --noconfirm --clean packaging/ApeArchivesExtractor.spec
 echo "Build locale completata. Output: dist/ApeArchivesExtractor.app"
 echo "Prima di distribuire: python scripts/prepare_release_sources.py --bundle dist/ApeArchivesExtractor.app"
-echo "Segui RELEASE_CHECKLIST.md e verifica con scripts/check_release.py --bundle dist/ApeArchivesExtractor.app"
+echo "Segui docs/BUILDING.md e verifica con scripts/check_release.py --bundle dist/ApeArchivesExtractor.app"

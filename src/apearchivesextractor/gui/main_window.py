@@ -8,9 +8,9 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterable
 
-from PyQt6.QtCore import QEventLoop, QPoint, Qt, QThread
-from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QDragEnterEvent, QDropEvent, QFont, QIcon, QKeySequence
-from PyQt6.QtWidgets import (
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, Qt, QThread, QTimer, Slot
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDragEnterEvent, QDropEvent, QFont, QIcon, QKeySequence
+from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
     QCheckBox,
@@ -36,6 +36,7 @@ from PyQt6.QtWidgets import (
 )
 
 from apearchivesextractor.archive_service import ArchiveService
+from apearchivesextractor import __version__
 from apearchivesextractor.errors import UnsafeArchivePathError
 from apearchivesextractor.gui.archive_tree import ArchiveTreeWidget
 from apearchivesextractor.gui.create_dialog import CreateArchiveDialog
@@ -44,6 +45,8 @@ from apearchivesextractor.gui.i18n import LANGUAGE_NAMES, SUPPORTED_LANGUAGES, t
 from apearchivesextractor.gui.licenses_dialog import LicensesDialog
 from apearchivesextractor.gui.settings import AppSettings
 from apearchivesextractor.gui.workers import ArchiveWorker
+from apearchivesextractor.gui.update_checker import AvailableUpdate, UpdateChecker
+from apearchivesextractor.gui.update_toast import UpdateToast
 from apearchivesextractor.models import ArchiveEntry, ArchiveFormat
 from apearchivesextractor.security import normalize_archive_name
 from apearchivesextractor.spanned import detect_archive_format, is_spanned_archive
@@ -64,6 +67,8 @@ class MainWindow(QMainWindow):
         self._current_entries: list[ArchiveEntry] = []
         self._thread: QThread | None = None
         self._worker: ArchiveWorker | None = None
+        self._worker_result_callback: Callable[[object], None] | None = None
+        self._worker_success_message = ""
         self._busy = False
         self._reload_after_finish: Path | None = None
         self._recent_menu: QMenu | None = None
@@ -194,6 +199,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         self._apply_style()
 
+        self._manual_update_check = False
+        self._update_check_action: QAction | None = None
+        self._update_checker = UpdateChecker(__version__, self)
+        self._update_checker.checked.connect(self._on_update_checked)
+        self._update_checker.failed.connect(self._on_update_failed)
+        self._update_toast = UpdateToast(central, self._language)
+
         self._retranslate_ui()
         self._create_menu()
         self._restore_window_state()
@@ -201,6 +213,13 @@ class MainWindow(QMainWindow):
 
     def _tr(self, key: str, **kwargs: object) -> str:
         return translate(self._language, key, **kwargs)
+
+    def event(self, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.ApplicationPaletteChange:
+            # QSS palette() brushes are cached; refresh already-open widgets
+            # after Qt has propagated the new system palette to child widgets.
+            QTimer.singleShot(0, self._apply_style)
+        return super().event(event)
 
     def _create_menu(self) -> None:
         self.menuBar().clear()
@@ -269,6 +288,12 @@ class MainWindow(QMainWindow):
         self._confirm_overwrite_action.toggled.connect(self.settings.set_confirm_overwrite)
         options_menu.addAction(self._confirm_overwrite_action)
 
+        startup_updates = QAction(self._tr("updates.startup"), self)
+        startup_updates.setCheckable(True)
+        startup_updates.setChecked(self.settings.check_updates_on_startup())
+        startup_updates.toggled.connect(self.settings.set_check_updates_on_startup)
+        options_menu.addAction(startup_updates)
+
         language_menu = options_menu.addMenu(self._tr("menu.language"))
         language_group = QActionGroup(self)
         language_group.setExclusive(True)
@@ -281,12 +306,55 @@ class MainWindow(QMainWindow):
             language_menu.addAction(action)
 
         help_menu = self.menuBar().addMenu(self._tr("menu.help"))
+        self._update_check_action = QAction(self._tr("updates.check"), self)
+        self._update_check_action.setEnabled(not self._update_checker.is_running)
+        self._update_check_action.triggered.connect(lambda: self.check_for_updates())
+        help_menu.addAction(self._update_check_action)
         license_action = QAction(self._tr("menu.licenses"), self)
         license_action.triggered.connect(self._show_licenses)
         help_menu.addAction(license_action)
 
     def _show_licenses(self) -> None:
         LicensesDialog(self._language, self).exec()
+
+    def check_startup_updates(self) -> None:
+        if self.settings.check_updates_on_startup():
+            self.check_for_updates(manual=False)
+
+    def check_for_updates(self, *, manual: bool = True) -> None:
+        if self._update_checker.is_running:
+            return
+        self._manual_update_check = manual
+        if self._update_check_action is not None:
+            self._update_check_action.setEnabled(False)
+        if manual:
+            self.statusBar().showMessage(self._tr("updates.checking"))
+        self._update_checker.check()
+
+    def _finish_update_check(self) -> bool:
+        manual, self._manual_update_check = self._manual_update_check, False
+        if self._update_check_action is not None:
+            self._update_check_action.setEnabled(True)
+        return manual
+
+    def _on_update_checked(self, update: AvailableUpdate | None) -> None:
+        manual = self._finish_update_check()
+        if update is not None:
+            self._update_toast.show_message(
+                self._tr("updates.available", version=update.version),
+                self._tr("updates.installed", version=__version__),
+                url=update.url, action=self._tr("updates.open_release"),
+            )
+        elif manual:
+            self._update_toast.show_message(self._tr("updates.title"), self._tr("updates.none"))
+        if manual:
+            self.statusBar().showMessage(self._tr("updates.finished"), 5000)
+
+    def _on_update_failed(self, reason: str) -> None:
+        if self._finish_update_check():
+            message = self._tr("updates.rate_limit" if reason == "rate_limit" else "updates.failed")
+            self._update_toast.show_message(self._tr("updates.title"), message)
+            self.statusBar().showMessage(message, 5000)
 
     def _set_language(self, language: str) -> None:
         if language == self._language:
@@ -298,6 +366,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(self._tr("app.ready"))
 
     def _retranslate_ui(self) -> None:
+        self._update_toast.set_language(self._language)
         self.archive_tree.setToolTip(self._tr("drag.hint"))
         self.archive_label.setText(self._tr("archive.label"))
         self.archive_edit.setPlaceholderText(self._tr("archive.placeholder"))
@@ -354,6 +423,8 @@ class MainWindow(QMainWindow):
             self.cancel_operation()
             event.ignore()
             return
+        self._update_checker.cancel()
+        self._update_toast.hide()
         self.settings.save_geometry(self.saveGeometry())
         self._cleanup_drag_extract_dirs()
         super().closeEvent(event)
@@ -1101,18 +1172,23 @@ class MainWindow(QMainWindow):
         self._worker.moveToThread(self._thread)
 
         self._thread.started.connect(self._worker.run)
-        self._worker.progress.connect(self._on_progress)
-        final_success_message = success_message or self._tr("worker.default_success")
-        self._worker.result.connect(lambda result: self._on_worker_result(result, on_result, final_success_message))
-        self._worker.cancelled.connect(self._on_worker_cancelled)
-        self._worker.error.connect(self._on_worker_error)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._thread.finished.connect(self._on_thread_finished)
+        self._worker.progress.connect(self._on_progress, Qt.ConnectionType.QueuedConnection)
+        self._worker_result_callback = on_result
+        self._worker_success_message = success_message or self._tr("worker.default_success")
+        # A contextless lambda runs in the emitting worker's thread in PySide6.
+        # Use a QObject slot so result callbacks and all UI updates run here.
+        self._worker.result.connect(self._on_worker_result, Qt.ConnectionType.QueuedConnection)
+        self._worker.cancelled.connect(self._on_worker_cancelled, Qt.ConnectionType.QueuedConnection)
+        self._worker.error.connect(self._on_worker_error, Qt.ConnectionType.QueuedConnection)
+        # quit() is thread-safe; delete the worker when its event loop stops.
+        self._worker.finished.connect(self._thread.quit, Qt.ConnectionType.DirectConnection)
+        self._thread.finished.connect(self._worker.deleteLater)
+        self._thread.finished.connect(self._on_thread_finished, Qt.ConnectionType.QueuedConnection)
         if on_finished is not None:
             self._thread.finished.connect(on_finished)
         self._thread.start()
 
+    @Slot(str, str, object, object)
     def _on_progress(self, message: str, current_item: str, processed: int, total: int) -> None:
         if total > 0 and processed >= 0:
             percent = min(100, int((processed / total) * 100))
@@ -1128,12 +1204,10 @@ class MainWindow(QMainWindow):
             details = message
         self.statusBar().showMessage(f"{progress_text} - {details}" if progress_text else details)
 
-    def _on_worker_result(
-        self,
-        result: object,
-        on_result: Callable[[object], None] | None,
-        success_message: str,
-    ) -> None:
+    @Slot(object)
+    def _on_worker_result(self, result: object) -> None:
+        on_result = self._worker_result_callback
+        success_message = self._worker_success_message
         if on_result is not None:
             on_result(result)
         self._log(success_message)
@@ -1141,12 +1215,14 @@ class MainWindow(QMainWindow):
         self.progress.setRange(0, 100)
         self.progress.setValue(100)
 
+    @Slot()
     def _on_worker_cancelled(self) -> None:
         self._log(self._tr("worker.cancelled"))
         self.statusBar().showMessage(self._tr("worker.cancelled"))
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
 
+    @Slot(str, str)
     def _on_worker_error(self, message: str, detail: str) -> None:
         self._log(self._tr("worker.error_log", message=message))
         self.progress.setRange(0, 100)
@@ -1157,11 +1233,17 @@ class MainWindow(QMainWindow):
             self._tr("worker.error_body", message=message, detail=detail),
         )
 
+    @Slot()
     def _on_thread_finished(self) -> None:
         if self._thread is not None:
+            # finished() precedes final thread teardown. Join before releasing
+            # wrappers or starting a reload with a fresh worker.
+            self._thread.wait()
             self._thread.deleteLater()
         self._thread = None
         self._worker = None
+        self._worker_result_callback = None
+        self._worker_success_message = ""
         self._busy = False
         self._set_controls_enabled(True)
         self._selection_changed()
@@ -1239,43 +1321,48 @@ class MainWindow(QMainWindow):
             )
         )
 
+    @Slot()
     def _apply_style(self) -> None:
         self.setStyleSheet(
             """
             QMainWindow {
-                background: #f6f7f9;
+                background: palette(window);
             }
             QLineEdit, QTextEdit, QTreeWidget {
-                background: #ffffff;
-                border: 1px solid #cfd5dd;
+                background: palette(base);
+                color: palette(text);
+                selection-background-color: palette(highlight);
+                selection-color: palette(highlighted-text);
+                border: 1px solid palette(mid);
                 border-radius: 4px;
                 padding: 5px;
             }
+            QTreeWidget {
+                alternate-background-color: palette(alternate-base);
+            }
+            QLineEdit, QTextEdit {
+                placeholder-text-color: palette(placeholder-text);
+            }
             QPushButton, QToolButton {
                 padding: 6px 10px;
-                border: 1px solid #b9c1cc;
+                border: 1px solid palette(mid);
                 border-radius: 4px;
-                background: #ffffff;
+                background: palette(button);
+                color: palette(button-text);
             }
             QPushButton:hover, QToolButton:hover {
-                background: #eef3f8;
+                background: palette(midlight);
+            }
+            QLineEdit:focus, QTextEdit:focus, QTreeWidget:focus,
+            QPushButton:focus, QToolButton:focus {
+                border: 1px solid palette(highlight);
             }
             QPushButton:disabled, QToolButton:disabled {
-                color: #8a93a0;
-                background: #eef0f3;
+                color: palette(button-text);
+                background: palette(window);
             }
             QLabel {
-                color: #26313f;
-            }
-            QProgressBar {
-                border: 1px solid #c7ced8;
-                border-radius: 4px;
-                text-align: center;
-                background: #ffffff;
-            }
-            QProgressBar::chunk {
-                background: #2f6fed;
-                border-radius: 3px;
+                color: palette(window-text);
             }
             """
         )

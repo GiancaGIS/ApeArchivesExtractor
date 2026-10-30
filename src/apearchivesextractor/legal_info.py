@@ -49,11 +49,11 @@ def legal_sections() -> list[tuple[str, str]]:
         parts = name.split("/")
         if len(parts) >= 4 and parts[0] == "generated" and parts[1] in {"licenses", "native"}:
             group = parts[2]
-            if group.startswith(("pyqt6", "qt")):
-                group = "Qt / PyQt6"
+            if group.startswith(("pyside6", "shiboken6", "qt")):
+                group = "Qt / PySide6"
             grouped.setdefault(group, []).append(name)
 
-    for group in sorted(grouped, key=lambda name: (name != "Qt / PyQt6", name.lower())):
+    for group in sorted(grouped, key=lambda name: (name != "Qt / PySide6", name.lower())):
         component = components.get(group.lower())
         title = group
         header = ""

@@ -8,8 +8,8 @@ import sys
 import time
 from pathlib import Path
 
-from PyQt6.QtCore import QTimer
-from PyQt6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
 
 from apearchivesextractor.gui.instance_coordinator import InstanceCoordinator
 from apearchivesextractor.gui.main_window import MainWindow
@@ -58,6 +58,7 @@ def main() -> int:
 
     window = MainWindow()
     window.show()
+    QTimer.singleShot(1000, window.check_startup_updates)
 
     pending_create_paths: list[Path] = []
     create_dialog_open = False

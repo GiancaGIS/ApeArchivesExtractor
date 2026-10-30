@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (c) 2026 GiancaGIS
+#define IDD_ARCHIVE_PROPERTIES 201
+#define IDC_ARCHIVE_STATUS 2001
+#define IDC_ARCHIVE_REPORT 2002
+#define IDC_ARCHIVE_OPEN 2003
+#define IDC_ARCHIVE_COPY 2004

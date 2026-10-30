@@ -2,8 +2,8 @@
 # Copyright (c) 2026 GiancaGIS
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QListWidget, QPushButton, QSplitter, QTextEdit, QVBoxLayout, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QListWidget, QPushButton, QSplitter, QTextEdit, QVBoxLayout, QWidget
 
 from apearchivesextractor.gui.i18n import translate
 from apearchivesextractor.legal_info import legal_sections

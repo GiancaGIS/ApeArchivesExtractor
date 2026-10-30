@@ -25,6 +25,10 @@ $portable = Join-Path $root "dist\ApeArchivesExtractor\ApeArchivesExtractor.exe"
 if (-not (Test-Path -LiteralPath $portable -PathType Leaf)) {
     throw "Eseguibile portabile non trovato: $portable. Esegui prima scripts\build_windows.ps1."
 }
+$console = Join-Path $root "dist\ApeArchivesExtractor\ape-arch.exe"
+if (-not (Test-Path -LiteralPath $console -PathType Leaf)) {
+    throw "Eseguibile console ape-arch.exe non trovato: $console. Ricompila con scripts\build_windows.ps1."
+}
 if (-not $SkipBuild) {
     & $python scripts\prepare_release_sources.py
     if ($LASTEXITCODE -ne 0) { throw "Preparazione sorgenti e licenze fallita." }

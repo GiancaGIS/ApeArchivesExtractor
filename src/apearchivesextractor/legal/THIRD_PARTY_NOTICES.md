@@ -1,9 +1,10 @@
 # Third-party components
 
-PyQt6 is GPLv3, not LGPL. Qt is distributed under its applicable open-source
-licenses; components embedded in Qt may have additional license terms.
+PySide6, Shiboken6 and the Qt modules used by the application are distributed
+under their applicable LGPL/GPL open-source licenses. Components embedded in
+Qt may have additional license terms.
 py7zr, multivolumefile, inflate64, pybcj and pyppmd use LGPL-2.1-or-later.
-rarfile uses ISC, PyQt6-sip uses BSD-2-Clause, and the other compression and
+rarfile uses ISC, and the other compression and
 support libraries retain their respective licenses.
 
 For an installation from Python source, consult the license files installed with

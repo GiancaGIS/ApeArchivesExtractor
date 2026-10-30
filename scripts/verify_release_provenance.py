@@ -62,7 +62,7 @@ def verify(bundle: Path) -> Path:
                           "upstream_sha256_verified": True})
         with zipfile.ZipFile(artifact) as archive:
             for binary in binaries:
-                original_hash = hashlib.sha256(archive.read(binary["path"])).hexdigest()
+                original_hash = hashlib.sha256(archive.read(binary.get("distribution_path", binary["path"]))).hexdigest()
                 if original_hash != binary["sha256"] or digest(bundle_file(bundle, binary["path"])) != original_hash:
                     raise RuntimeError(f"Binary differs from the published wheel: {binary['path']}")
                 verified.append({"path": "_internal/" + binary["path"], "origin": artifact.name, "sha256": original_hash})
@@ -81,7 +81,7 @@ def verify(bundle: Path) -> Path:
                 raise RuntimeError(f"Binary differs from the official CPython payload: {binary['path']}")
             verified.append({"path": "_internal/" + binary["path"], "origin": python_archive.name, "sha256": original_hash})
 
-    application = {"ApeArchivesExtractor.exe", "ApeArchivesExtractorShellExtension.dll", "ApeArchivesExtractorIdentity.msix"}
+    application = {"ApeArchivesExtractor.exe", "ape-arch.exe", "ApeArchivesExtractorShellExtension.dll", "ApeArchivesExtractorIdentity.msix"}
     known = {r["path"].casefold() for r in verified} | {name.casefold() for name in application}
     for path in bundle.rglob("*"):
         if path.is_file() and path.suffix.lower() in {".dll", ".pyd", ".exe", ".msix"}:
@@ -91,7 +91,7 @@ def verify(bundle: Path) -> Path:
     result = legal / "binary-provenance.json"
     result.write_text(json.dumps({"artifacts": artifacts, "verified_binaries": verified,
                                  "application_artifacts": sorted(application),
-                                 "scope": "Byte provenance only; complete RELEASE_CHECKLIST.md separately."}, indent=2) + "\n", encoding="utf-8")
+                                 "scope": "Byte provenance only; follow docs/BUILDING.md for release checks."}, indent=2) + "\n", encoding="utf-8")
     print(f"Native byte provenance verified: {len(verified)} files", flush=True)
     return result
 

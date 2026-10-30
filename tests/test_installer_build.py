@@ -27,12 +27,13 @@ def installer_project(tmp_path: Path) -> Path:
     portable = tmp_path / "dist/ApeArchivesExtractor"
     portable.mkdir(parents=True)
     (portable / "ApeArchivesExtractor.exe").write_bytes(b"fixture")
+    (portable / "ape-arch.exe").write_bytes(b"console fixture")
     packaging = tmp_path / "packaging"
     packaging.mkdir()
-    (packaging / "ApeArchivesExtractor.iss").write_text('#define MyAppVersion "1.0.2"\n', encoding="utf-8")
+    (packaging / "ApeArchivesExtractor.iss").write_text('#define MyAppVersion "1.0.3"\n', encoding="utf-8")
     (scripts / "compiler.ps1").write_text("""
 $args | Set-Content compiler-args.txt
-New-Item -Path dist/ApeArchivesExtractorSetup-1.0.2.exe -ItemType File | Out-Null
+New-Item -Path dist/ApeArchivesExtractorSetup-1.0.3.exe -ItemType File | Out-Null
 $global:LASTEXITCODE = 0
 """, encoding="utf-8")
     (scripts / "run.ps1").write_text("""
@@ -55,8 +56,16 @@ def test_installer_verifies_prepared_release_and_uses_standard_filename(installe
     result = run_build(installer_project, "-SkipBuild")
     assert result.returncode == 0, result.stdout + result.stderr
     assert (installer_project / "compiler-args.txt").read_text().strip() == "packaging\\ApeArchivesExtractor.iss"
-    assert "ApeArchivesExtractorSetup-1.0.2.exe" in result.stdout
+    assert "ApeArchivesExtractorSetup-1.0.3.exe" in result.stdout
     assert (installer_project / "release-checked.txt").is_file()
+
+
+def test_installer_rejects_a_bundle_without_the_console_command(installer_project: Path) -> None:
+    (installer_project / "dist/ApeArchivesExtractor/ape-arch.exe").unlink()
+    result = run_build(installer_project, "-SkipBuild")
+    assert result.returncode != 0
+    assert "ape-arch.exe" in result.stdout + result.stderr
+    assert not (installer_project / "compiler-args.txt").exists()
 
 
 def test_installer_stops_when_release_material_checks_fail(installer_project: Path) -> None:
@@ -80,7 +89,7 @@ def test_default_installer_build_prepares_sources_before_validation(installer_pr
     result = run_build(installer_project)
     assert result.returncode == 0, result.stdout + result.stderr
     assert (installer_project / "release-checked.txt").is_file()
-    assert (installer_project / "dist/ApeArchivesExtractorSetup-1.0.2.exe").is_file()
+    assert (installer_project / "dist/ApeArchivesExtractorSetup-1.0.3.exe").is_file()
 
 
 def test_installer_reports_compiler_failure(installer_project: Path) -> None:
@@ -105,7 +114,7 @@ if (-not (Test-Path compiler-first-attempt.txt)) {
     Write-Output 'Resource update error: EndUpdateResource failed (110)'
     $global:LASTEXITCODE = 1
 } else {
-    New-Item -Path dist/ApeArchivesExtractorSetup-1.0.2.exe -ItemType File | Out-Null
+    New-Item -Path dist/ApeArchivesExtractorSetup-1.0.3.exe -ItemType File | Out-Null
     $global:LASTEXITCODE = 0
 }
 """, encoding="utf-8")

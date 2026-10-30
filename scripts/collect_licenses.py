@@ -32,7 +32,7 @@ def legal_file(path: str) -> bool:
 def application_files(root: Path) -> list[Path]:
     files = [p for p in root.iterdir() if p.is_file() and
              (p.suffix in {".md", ".toml", ".txt", ".bat"} or p.name in {"LICENSE", "NOTICE", ".gitignore"})]
-    for folder in ("src", "scripts", "tests", "packaging", "native", "images"):
+    for folder in ("src", "scripts", "tests", "packaging", "native", "images", "docs"):
         files.extend(p for p in (root / folder).rglob("*") if p.is_file() and
                      "__pycache__" not in p.parts and not any(x.endswith(".egg-info") for x in p.parts) and p.suffix != ".pyc")
     return sorted(files)
@@ -54,28 +54,42 @@ def collect(root: Path, analysis: object, initial_snapshot: dict[str, str] | Non
         shutil.rmtree(output)
     output.mkdir(parents=True)
     for filename in ("LICENSE", "NOTICE", "SOURCES.md"):
-        shutil.copyfile(root / filename, output / filename)
+        source = root / filename
+        if filename == "NOTICE" and not source.exists():
+            source = root / "src/apearchivesextractor/legal/NOTICE.txt"
+        shutil.copyfile(source, output / filename)
 
     selected: set[str] = set()
     modules = metadata.packages_distributions()
     distributions = {slug(d.metadata["Name"]): d for d in metadata.distributions()}
     # Map extension modules and Qt DLLs to their wheel owners, too.
     owners: dict[Path, str] = {}
+    distribution_paths: dict[Path, str] = {}
     for name, distribution in distributions.items():
         for entry in distribution.files or ():
-            owners[distribution.locate_file(entry).resolve()] = name
+            installed = distribution.locate_file(entry).resolve()
+            owners[installed] = name
+            distribution_paths[installed] = Path(str(entry)).as_posix()
     for name, source, _kind in analysis.pure:
-        selected.update(slug(n) for n in modules.get(name.split(".")[0], ()))
         owner = owners.get(Path(source).resolve()) if source else None
         if owner:
             selected.add(owner)
+        elif name.split(".")[0] == "PySide6":
+            # Shared namespace: optional Addons/Pdf/WebEngine distributions
+            # must be selected by actual file ownership, not their namespace.
+            selected.add("pyside6-essentials")
+        else:
+            selected.update(slug(n) for n in modules.get(name.split(".")[0], ()))
     binaries = []
     for name, source, kind in analysis.binaries:
         path = Path(source)
         owner = owners.get(path.resolve())
         if owner:
             selected.add(owner)
-        binaries.append({"path": name.replace("\\", "/"), "sha256": digest(path), "owner": owner, "kind": kind})
+        record = {"path": name.replace("\\", "/"), "sha256": digest(path), "owner": owner, "kind": kind}
+        if owner:
+            record["distribution_path"] = distribution_paths[path.resolve()]
+        binaries.append(record)
     selected.discard("apearchivesextractor")
     # Include the bootloader exception and runtime-hook licensing.
     selected.update({"pyinstaller", "pyinstaller-hooks-contrib"})
@@ -117,6 +131,10 @@ def collect(root: Path, analysis: object, initial_snapshot: dict[str, str] | Non
                  "python_version": sys.version.split()[0], "platform": sys.platform,
                  "application_files_sha256": snapshot,
                  "components": components, "binaries": binaries}
+    if any(slug(c["name"]).startswith("pyside6") for c in components):
+        from PySide6.QtCore import qVersion
+
+        inventory["qt_version"] = qVersion()
     (output / "component-manifest.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
     lines = ["# Third-party notices", "", "ApeArchivesExtractor — Copyright (c) 2026 GiancaGIS; GPL-3.0-only.",
              "No warranty. See LICENSE and SOURCES.md.", "", "Third-party copyrights and terms are preserved in the complete files listed below.",
