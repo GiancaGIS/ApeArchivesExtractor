@@ -6,3 +6,4 @@
 *.pyc
 /src/apearchivesextractor.egg-info
 LICENSE_AUDIT.md
+/.vscode

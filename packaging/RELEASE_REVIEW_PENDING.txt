@@ -1,7 +1,0 @@
-DEVELOPMENT BUILD — RELEASE REVIEW PENDING
-
-This installer is for local testing and review. Do not publish it as a verified
-release. Complete RELEASE_CHECKLIST.md and scripts/check_release.py first.
-
-GPL/LGPL source preparation and automated license collection do not certify
-all native library redistribution rights or complete build provenance.

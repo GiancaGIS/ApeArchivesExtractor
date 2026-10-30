@@ -40,6 +40,12 @@ ZIP encryption is intentionally excluded to avoid providing a false sense of sec
 - Hierarchical archive tree with native file and folder icons.
 - Archive content filtering.
 - Drag and drop support.
+- Drag selected files and folders from an open archive to a desktop folder to
+  extract them. Use Ctrl/Shift for multiple selection. The application prepares
+  the selection before the copy; keep the mouse button held until it is ready.
+  Preparation shows progress and can be cancelled. Selected folders keep their
+  contents, and items with the same name receive a numeric suffix. The original
+  archive is preserved.
 - Full or selective extraction.
 - Extract-to-folder and extract-here actions.
 - Archive creation from files and folders.
@@ -225,34 +231,31 @@ The portable application is generated in:
 dist\ApeArchivesExtractor
 ```
 
-To create a local development installer, double-click `build_installer.bat`, or run:
+To create the Windows installer, double-click `build_installer.bat`, or run:
 
 ```powershell
-.\scripts\build_windows_installer.ps1 -DevelopmentBuild
+.\scripts\build_windows_installer.ps1
 ```
 
 If required by the PowerShell execution policy:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows_installer.ps1 -DevelopmentBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build_windows_installer.ps1
 ```
 
 This requires [Inno Setup 6](https://jrsoftware.org/isinfo.php). The generated installer is:
 
 ```text
-dist\ApeArchivesExtractorSetup-1.0.1-development.exe
+dist\ApeArchivesExtractorSetup-1.0.2.exe
 ```
 
-Development installers include the collected license texts, display a development
-notice, and skip release source downloads and review. For an existing portable
-build, add `-SkipBuild -DevelopmentBuild`. When arguments are passed to
-`build_installer.bat`, they are forwarded exactly; include `-DevelopmentBuild`
-to select local development mode. On failure, the launcher keeps the error visible.
-
-For a distributable installer, prepare sources and complete
-[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md), then run
-`.\scripts\build_windows_installer.ps1 -SkipBuild`. This produces
-`dist\ApeArchivesExtractorSetup-1.0.1.exe` only after release verification passes.
+The installer includes the collected license texts. The build prepares the
+matching source archive and verifies license files, sources and binary checksums
+before compilation. For an existing portable build whose sources are already
+prepared, use `.\scripts\build_windows_installer.ps1 -SkipBuild`.
+Arguments passed to `build_installer.bat` are forwarded to the PowerShell script;
+on failure, the launcher keeps the error visible. See
+[RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) for the publishing steps.
 
 The installer asks whether to install ApeArchivesExtractor for the current user only or for
 all users:
@@ -438,9 +441,8 @@ Before publishing binaries, prepare the matching source companion with
 before compiling an installer. For macOS pass `--bundle dist/ApeArchivesExtractor.app`
 to both commands. Publish the generated source ZIP next to the binary downloads.
 See [SOURCES.md](SOURCES.md) for source availability and rebuilding with modified
-dependencies. Without `-DevelopmentBuild`, the Windows installer script prepares
-sources and stops until the release review is complete. Local portable and
-development installer builds remain available while review is pending.
+dependencies. The Windows installer script prepares sources and checks license
+files, source archives and binary checksums before compiling the installer.
 
 The project's own code previously distributed under MIT retains that original
 license for those versions. This does not change the licenses of dependencies.

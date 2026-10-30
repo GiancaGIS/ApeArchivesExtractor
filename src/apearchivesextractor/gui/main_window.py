@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterable
 
-from PyQt6.QtCore import QPoint, Qt, QThread
+from PyQt6.QtCore import QEventLoop, QPoint, Qt, QThread
 from PyQt6.QtGui import QAction, QActionGroup, QCloseEvent, QDragEnterEvent, QDropEvent, QFont, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -69,6 +69,7 @@ class MainWindow(QMainWindow):
         self._recent_menu: QMenu | None = None
         self._confirm_overwrite_action: QAction | None = None
         self._drag_extract_dirs: list[Path] = []
+        self._preparing_drag = False
 
         self.archive_edit = QLineEdit()
         self.archive_edit.setClearButtonEnabled(True)
@@ -155,6 +156,7 @@ class MainWindow(QMainWindow):
         self.archive_tree = ArchiveTreeWidget()
         self.archive_tree.set_language(self._language)
         self.archive_tree.set_drag_handlers(self._prepare_selected_file_drag, self._handle_external_file_drop)
+        self.archive_tree.setToolTip(self._tr("drag.hint"))
         self.archive_tree.itemSelectionChanged.connect(self._selection_changed)
         self.archive_tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.archive_tree.customContextMenuRequested.connect(self._show_archive_context_menu)
@@ -296,6 +298,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(self._tr("app.ready"))
 
     def _retranslate_ui(self) -> None:
+        self.archive_tree.setToolTip(self._tr("drag.hint"))
         self.archive_label.setText(self._tr("archive.label"))
         self.archive_edit.setPlaceholderText(self._tr("archive.placeholder"))
         self.password_label.setText(self._tr("password.label"))
@@ -347,6 +350,10 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 - Qt naming
+        if self._preparing_drag:
+            self.cancel_operation()
+            event.ignore()
+            return
         self.settings.save_geometry(self.saveGeometry())
         self._cleanup_drag_extract_dirs()
         super().closeEvent(event)
@@ -632,29 +639,33 @@ class MainWindow(QMainWindow):
         if self.current_archive is None or self._busy:
             return []
         members = self._selected_members()
-        file_members = self._selected_file_members(members)
-        if file_members is None:
-            self.statusBar().showMessage(self._tr("drag.files_only"))
+        if not members:
             return []
 
         temp_dir = Path(tempfile.mkdtemp(prefix="apearchivesextractor_drag_"))
+        paths: list[Path] = []
+        loop = QEventLoop(self)
+        self._preparing_drag = True
         try:
-            ArchiveService().extract_members_flat(
-                self.current_archive,
-                temp_dir,
-                file_members,
+            self.statusBar().showMessage(self._tr("drag.preparing"))
+            self._start_worker(
+                "extract_drag", self.current_archive, temp_dir, members,
                 password=self._password(),
                 archive_format=self._forced_archive_format.value if self._forced_archive_format else None,
+                on_result=lambda result: paths.extend(result),
+                on_finished=loop.quit,
+                success_message=self._tr("drag.extract.log", count=len(members)),
             )
-        except Exception as exc:
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            QMessageBox.critical(self, self._tr("worker.error_title"), str(exc))
+            loop.exec()
+        finally:
+            self._preparing_drag = False
+            loop.deleteLater()
+            if not paths:
+                shutil.rmtree(temp_dir, ignore_errors=True)
+        if not paths:
             return []
-
         self._drag_extract_dirs.append(temp_dir)
-        extracted_paths = [temp_dir / PurePosixPath(member).name for member in file_members]
-        self._log(self._tr("drag.extract.log", count=len(extracted_paths)))
-        return [path for path in extracted_paths if path.exists()]
+        return paths
 
     def cancel_operation(self) -> None:
         if self._worker is None or not self._busy:
@@ -1073,6 +1084,7 @@ class MainWindow(QMainWindow):
         operation: str,
         *args,
         on_result: Callable[[object], None] | None = None,
+        on_finished: Callable[[], None] | None = None,
         success_message: str | None = None,
         **kwargs,
     ) -> None:
@@ -1097,6 +1109,8 @@ class MainWindow(QMainWindow):
         self._worker.finished.connect(self._thread.quit)
         self._worker.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._on_thread_finished)
+        if on_finished is not None:
+            self._thread.finished.connect(on_finished)
         self._thread.start()
 
     def _on_progress(self, message: str, current_item: str, processed: int, total: int) -> None:
@@ -1296,8 +1310,9 @@ class MainWindow(QMainWindow):
             return False
         return True
 
-    @staticmethod
-    def _drop_paths(event: QDragEnterEvent | QDropEvent) -> list[Path]:
+    def _drop_paths(self, event: QDragEnterEvent | QDropEvent) -> list[Path]:
+        if event.source() is self.archive_tree:
+            return []
         mime_data = event.mimeData()
         if not mime_data.hasUrls():
             return []

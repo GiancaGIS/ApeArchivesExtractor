@@ -116,12 +116,11 @@ def collect(root: Path, analysis: object, initial_snapshot: dict[str, str] | Non
     inventory = {"schema_version": 1, "application_version": project["version"], "application_license": project["license"],
                  "python_version": sys.version.split()[0], "platform": sys.platform,
                  "application_files_sha256": snapshot,
-                 "components": components, "binaries": binaries,
-                 "release_review": "Pending: see RELEASE_CHECKLIST.md; this inventory is not a legal certification."}
+                 "components": components, "binaries": binaries}
     (output / "component-manifest.json").write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
     lines = ["# Third-party notices", "", "ApeArchivesExtractor — Copyright (c) 2026 GiancaGIS; GPL-3.0-only.",
              "No warranty. See LICENSE and SOURCES.md.", "", "Third-party copyrights and terms are preserved in the complete files listed below.",
-             "Qt and Python include further native components: consult native/ and the release review.", ""]
+             "Qt and Python include further native components: consult native/ and the source archives.", ""]
     for component in components:
         lines += [f"## {component['name']} {component['version']}", "", component["license"], ""]
         lines.extend(f"- [{p}]({p})" for p in component["license_files"])

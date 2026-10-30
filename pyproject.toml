@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "apearchivesextractor"
-version = "1.0.1"
+version = "1.0.2"
 description = "A small cross-platform archive manager with CLI and PyQt6 GUI."
 readme = "README.md"
 license = "GPL-3.0-only"

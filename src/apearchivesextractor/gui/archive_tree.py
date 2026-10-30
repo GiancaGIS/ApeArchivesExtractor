@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Callable
 
-from PyQt6.QtCore import QUrl, Qt
+from PyQt6.QtCore import QMimeData, QUrl, Qt
 from PyQt6.QtGui import QDrag, QDragEnterEvent, QDragMoveEvent, QDropEvent, QIcon
 from PyQt6.QtWidgets import QApplication, QHeaderView, QStyle, QTreeWidget, QTreeWidgetItem
 
@@ -48,6 +48,8 @@ class ArchiveTreeWidget(QTreeWidget):
         self.setAlternatingRowColors(True)
         self.setSelectionBehavior(QTreeWidget.SelectionBehavior.SelectRows)
         self.setSelectionMode(QTreeWidget.SelectionMode.ExtendedSelection)
+        self.setDragDropMode(QTreeWidget.DragDropMode.DragDrop)
+        self.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.setDragEnabled(True)
         self.setAcceptDrops(True)
         self.setSortingEnabled(True)
@@ -76,31 +78,44 @@ class ArchiveTreeWidget(QTreeWidget):
         return translate(self._language, key, **kwargs)
 
     def startDrag(self, supported_actions: Qt.DropAction) -> None:  # noqa: N802 - Qt naming
-        if self._prepare_drag_paths is None:
+        if self._prepare_drag_paths is None or not self.selected_members():
             return
         paths = self._prepare_drag_paths()
         if not paths:
             return
 
-        mime_data = self.model().mimeData(self.selectedIndexes())
-        mime_data.setUrls([QUrl.fromLocalFile(str(path)) for path in paths])
+        # Publish filesystem URLs, without Qt's internal tree-row MIME format.
+        mime_data = QMimeData()
+        mime_data.setUrls([QUrl.fromLocalFile(str(path.resolve())) for path in paths])
         drag = QDrag(self)
         drag.setMimeData(mime_data)
-        drag.exec(Qt.DropAction.CopyAction)
+        try:
+            drag.exec(Qt.DropAction.CopyAction, Qt.DropAction.CopyAction)
+        finally:
+            drag.deleteLater()
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:  # noqa: N802 - Qt naming
+        if event.source() is self:
+            event.ignore()
+            return
         if self._drop_paths(event):
             event.acceptProposedAction()
             return
         super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:  # noqa: N802 - Qt naming
+        if event.source() is self:
+            event.ignore()
+            return
         if self._drop_paths(event):
             event.acceptProposedAction()
             return
         super().dragMoveEvent(event)
 
     def dropEvent(self, event: QDropEvent) -> None:  # noqa: N802 - Qt naming
+        if event.source() is self:
+            event.ignore()
+            return
         paths = self._drop_paths(event)
         if paths and self._handle_external_drop is not None and self._handle_external_drop(paths):
             event.acceptProposedAction()

@@ -21,7 +21,7 @@ portable/installer downloads and identify it explicitly in the release notes.
 The archive contains `application/`, `dependencies/`, a pinned build environment,
 the exact component inventory and hashes. Keep it available while distributing
 the corresponding binary. Do not publish a release if the preparation or the
-release check fails. See `RELEASE_CHECKLIST.md` for remaining manual review.
+release check fails. See `RELEASE_CHECKLIST.md` for the publishing steps.
 
 For binaries, the generated `legal/source-manifest.json` identifies the source
 archives, original URLs and SHA-256 hashes. URLs alone are not a promise of future

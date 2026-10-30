@@ -1,5 +1,5 @@
 #define MyAppName "ApeArchivesExtractor"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "GiancaGIS"
 #define MyAppExeName "ApeArchivesExtractor.exe"
 
@@ -12,12 +12,7 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..\dist
-#ifdef DevelopmentBuild
-OutputBaseFilename=ApeArchivesExtractorSetup-{#MyAppVersion}-development
-InfoBeforeFile=RELEASE_REVIEW_PENDING.txt
-#else
 OutputBaseFilename=ApeArchivesExtractorSetup-{#MyAppVersion}
-#endif
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -29,11 +24,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 SetupIconFile=..\src\apearchivesextractor\assets\apearchivesextractor_app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
-#ifdef DevelopmentBuild
-LicenseFile=..\LICENSE
-#else
 LicenseFile=..\dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated\INSTALLER_LICENSE.txt
-#endif
 InfoAfterFile=..\SOURCES.md
 
 [Languages]

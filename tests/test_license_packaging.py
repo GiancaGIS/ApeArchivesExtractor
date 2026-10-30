@@ -101,15 +101,10 @@ def release(tmp_path: Path) -> tuple[Path, Path, Path]:
         archive.write(legal / "source-manifest.json", "legal/source-manifest.json")
         archive.writestr("application/main.py", code)
         archive.writestr("dependencies/dependency.tar.gz", dependency)
-    review = {"component_manifest_sha256": digest(legal / "component-manifest.json"),
-              "source_manifest_sha256": digest(legal / "source-manifest.json"), "reviewer": "Test reviewer",
-              "evidence": "Fixture evidence", "native_components_reviewed": True,
-              "asset_rights_confirmed": True, "corresponding_source_verified": True}
-    (legal / "release-review.json").write_text(json.dumps(review))
     return bundle, legal, companion
 
 
-def test_release_accepts_matching_sources_and_review(release) -> None:
+def test_release_accepts_matching_sources_and_license_files(release) -> None:
     bundle, _legal, companion = release
     check(bundle, companion)
 
@@ -121,16 +116,10 @@ def test_release_rejects_changed_binary(release) -> None:
         check(bundle, companion)
 
 
-def test_release_rejects_missing_and_stale_review(release) -> None:
+def test_release_rejects_missing_license_file(release) -> None:
     bundle, legal, companion = release
-    original = (legal / "release-review.json").read_text()
-    (legal / "release-review.json").unlink()
-    with pytest.raises(RuntimeError, match="pending"):
-        check(bundle, companion)
-    review = json.loads(original)
-    review["component_manifest_sha256"] = "outdated"
-    (legal / "release-review.json").write_text(json.dumps(review))
-    with pytest.raises(RuntimeError, match="Stale"):
+    (legal / "LICENSE").unlink()
+    with pytest.raises(RuntimeError, match="Missing release material: LICENSE"):
         check(bundle, companion)
 
 

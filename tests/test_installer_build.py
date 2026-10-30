@@ -18,7 +18,7 @@ def installer_project(tmp_path: Path) -> Path:
     scripts.mkdir()
     shutil.copyfile("scripts/build_windows_installer.ps1", scripts / "build_windows_installer.ps1")
     (scripts / "build_windows.ps1").write_text("throw 'Unexpected portable rebuild'", encoding="utf-8")
-    (scripts / "check_release.py").write_text("raise SystemExit('Release review is pending')", encoding="utf-8")
+    (scripts / "check_release.py").write_text("from pathlib import Path; Path('release-checked.txt').write_text('checked')", encoding="utf-8")
     (scripts / "prepare_release_sources.py").write_text("raise SystemExit('Unexpected source download')", encoding="utf-8")
     venv = tmp_path / ".venv/Scripts"
     venv.mkdir(parents=True)
@@ -29,10 +29,10 @@ def installer_project(tmp_path: Path) -> Path:
     (portable / "ApeArchivesExtractor.exe").write_bytes(b"fixture")
     packaging = tmp_path / "packaging"
     packaging.mkdir()
-    (packaging / "ApeArchivesExtractor.iss").write_text('#define MyAppVersion "1.0.1"\n', encoding="utf-8")
+    (packaging / "ApeArchivesExtractor.iss").write_text('#define MyAppVersion "1.0.2"\n', encoding="utf-8")
     (scripts / "compiler.ps1").write_text("""
 $args | Set-Content compiler-args.txt
-New-Item -Path dist/ApeArchivesExtractorSetup-1.0.1-development.exe -ItemType File | Out-Null
+New-Item -Path dist/ApeArchivesExtractorSetup-1.0.2.exe -ItemType File | Out-Null
 $global:LASTEXITCODE = 0
 """, encoding="utf-8")
     (scripts / "run.ps1").write_text("""
@@ -51,30 +51,48 @@ def run_build(project: Path, *args: str) -> subprocess.CompletedProcess:
                           text=True, timeout=20)
 
 
-def test_development_installer_skips_release_downloads_and_review(installer_project: Path) -> None:
-    result = run_build(installer_project, "-SkipBuild", "-DevelopmentBuild")
+def test_installer_verifies_prepared_release_and_uses_standard_filename(installer_project: Path) -> None:
+    result = run_build(installer_project, "-SkipBuild")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "/DDevelopmentBuild" in (installer_project / "compiler-args.txt").read_text()
-    assert "-development.exe" in result.stdout
+    assert (installer_project / "compiler-args.txt").read_text().strip() == "packaging\\ApeArchivesExtractor.iss"
+    assert "ApeArchivesExtractorSetup-1.0.2.exe" in result.stdout
+    assert (installer_project / "release-checked.txt").is_file()
 
 
-def test_distributable_installer_stops_when_review_is_pending(installer_project: Path) -> None:
+def test_installer_stops_when_release_material_checks_fail(installer_project: Path) -> None:
+    (installer_project / "scripts/check_release.py").write_text("raise SystemExit('Source archive digest mismatch')", encoding="utf-8")
     result = run_build(installer_project, "-SkipBuild")
     assert result.returncode != 0
-    assert "Release review is pending" in result.stderr
+    assert "Source archive digest mismatch" in result.stderr
     assert not (installer_project / "compiler-args.txt").exists()
+
+
+def test_default_installer_build_prepares_sources_before_validation(installer_project: Path) -> None:
+    (installer_project / "scripts/build_windows.ps1").write_text("Set-Content portable-built.txt done", encoding="utf-8")
+    (installer_project / "scripts/prepare_release_sources.py").write_text(
+        "from pathlib import Path\nassert Path('portable-built.txt').is_file()\nPath('source-prepared.txt').write_text('prepared')\n",
+        encoding="utf-8",
+    )
+    (installer_project / "scripts/check_release.py").write_text(
+        "from pathlib import Path\nassert Path('source-prepared.txt').is_file()\nPath('release-checked.txt').write_text('checked')\n",
+        encoding="utf-8",
+    )
+    result = run_build(installer_project)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert (installer_project / "release-checked.txt").is_file()
+    assert (installer_project / "dist/ApeArchivesExtractorSetup-1.0.2.exe").is_file()
 
 
 def test_installer_reports_compiler_failure(installer_project: Path) -> None:
     (installer_project / "scripts/compiler.ps1").write_text("$global:LASTEXITCODE = 42\n", encoding="utf-8")
-    result = run_build(installer_project, "-SkipBuild", "-DevelopmentBuild")
+    result = run_build(installer_project, "-SkipBuild")
     assert result.returncode != 0
     assert "Inno Setup fallita" in result.stderr
 
 
 def test_installer_reports_missing_portable(installer_project: Path) -> None:
     (installer_project / "dist/ApeArchivesExtractor/ApeArchivesExtractor.exe").unlink()
-    result = run_build(installer_project, "-SkipBuild", "-DevelopmentBuild")
+    result = run_build(installer_project, "-SkipBuild")
     assert result.returncode != 0
     assert "Eseguibile portabile non trovato" in result.stderr
     assert not (installer_project / "compiler-args.txt").exists()
@@ -87,10 +105,10 @@ if (-not (Test-Path compiler-first-attempt.txt)) {
     Write-Output 'Resource update error: EndUpdateResource failed (110)'
     $global:LASTEXITCODE = 1
 } else {
-    New-Item -Path dist/ApeArchivesExtractorSetup-1.0.1-development.exe -ItemType File | Out-Null
+    New-Item -Path dist/ApeArchivesExtractorSetup-1.0.2.exe -ItemType File | Out-Null
     $global:LASTEXITCODE = 0
 }
 """, encoding="utf-8")
-    result = run_build(installer_project, "-SkipBuild", "-DevelopmentBuild")
+    result = run_build(installer_project, "-SkipBuild")
     assert result.returncode == 0, result.stdout + result.stderr
     assert "Riprovo" in result.stdout

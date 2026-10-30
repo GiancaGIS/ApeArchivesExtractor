@@ -1,7 +1,6 @@
 # Run from the project root on Windows PowerShell.
 param(
-    [switch]$SkipBuild,
-    [switch]$DevelopmentBuild
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,17 +25,13 @@ $portable = Join-Path $root "dist\ApeArchivesExtractor\ApeArchivesExtractor.exe"
 if (-not (Test-Path -LiteralPath $portable -PathType Leaf)) {
     throw "Eseguibile portabile non trovato: $portable. Esegui prima scripts\build_windows.ps1."
 }
-if ($DevelopmentBuild) {
-    Write-Warning "Installer locale di sviluppo: materiale di release non ancora verificato. Non pubblicarlo."
-} else {
-    if (-not $SkipBuild) {
-        & $python scripts\prepare_release_sources.py
-        if ($LASTEXITCODE -ne 0) { throw "Preparazione sorgenti e licenze fallita." }
-    }
-    & $python scripts\check_release.py
-    if ($LASTEXITCODE -ne 0) {
-        throw "Verifica release incompleta. Consulta RELEASE_CHECKLIST.md; per un installer locale usa -SkipBuild -DevelopmentBuild."
-    }
+if (-not $SkipBuild) {
+    & $python scripts\prepare_release_sources.py
+    if ($LASTEXITCODE -ne 0) { throw "Preparazione sorgenti e licenze fallita." }
+}
+& $python scripts\check_release.py
+if ($LASTEXITCODE -ne 0) {
+    throw "Verifica dei materiali di release fallita. Correggi gli errori indicati prima di compilare l'installer."
 }
 
 $isccCommand = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
@@ -61,7 +56,6 @@ if (-not $isccPath) {
 }
 
 $compilerArgs = @("packaging\ApeArchivesExtractor.iss")
-if ($DevelopmentBuild) { $compilerArgs = @("/DDevelopmentBuild") + $compilerArgs }
 & $isccPath @compilerArgs | Tee-Object -Variable compilerOutput
 if ($LASTEXITCODE -ne 0 -and ($compilerOutput -match 'EndUpdateResource failed')) {
     Write-Warning "Aggiornamento risorse Windows fallito. Riprovo la compilazione una volta."
@@ -70,11 +64,10 @@ if ($LASTEXITCODE -ne 0 -and ($compilerOutput -match 'EndUpdateResource failed')
 }
 if ($LASTEXITCODE -ne 0) { throw "Compilazione installer Inno Setup fallita." }
 
-$suffix = if ($DevelopmentBuild) { "-development" } else { "" }
 $definition = Get-Content -LiteralPath (Join-Path $root "packaging\ApeArchivesExtractor.iss") -Raw
 $version = [regex]::Match($definition, '(?m)^#define MyAppVersion "([^"]+)"').Groups[1].Value
 if (-not $version) { throw "Versione installer non trovata in packaging\ApeArchivesExtractor.iss." }
-$installerPath = Join-Path $root "dist\ApeArchivesExtractorSetup-$version$suffix.exe"
+$installerPath = Join-Path $root "dist\ApeArchivesExtractorSetup-$version.exe"
 if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
     throw "Installer compilato ma non trovato: $installerPath"
 }

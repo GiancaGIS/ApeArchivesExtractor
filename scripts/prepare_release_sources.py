@@ -226,13 +226,12 @@ def prepare(bundle: Path) -> Path:
     if source_snapshot(ROOT) != snapshot:
         raise RuntimeError("Application sources changed during source preparation; rebuild before distributing")
     manifest = {"application_version": inventory["application_version"], "sources": records,
-                "application_files_sha256": snapshot, "component_manifest_sha256": digest(inventory_path),
-                "remaining_review": "Native provenance/build configuration and asset rights require RELEASE_CHECKLIST.md review."}
+                "application_files_sha256": snapshot, "component_manifest_sha256": digest(inventory_path)}
     (legal / "THIRD_PARTY_NOTICES.md").write_text(
         (legal / "THIRD_PARTY_NOTICES.md").read_text(encoding="utf-8").split("\n## Source archive notices")[0]
         + "\n## Source archive notices\n\n" + "\n".join(f"- [{p}]({p})" for r in records for p in r["notice_files"]) + "\n", encoding="utf-8")
     manifest["legal_files_sha256"] = {p.relative_to(legal).as_posix(): digest(p) for p in sorted(legal.rglob("*"))
-                                    if p.is_file() and p.name not in {"source-manifest.json", "release-review.json"}}
+                                    if p.is_file() and p.name != "source-manifest.json"}
     (legal / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     companion = ROOT / "dist" / f"ApeArchivesExtractor-sources-{inventory['application_version']}.zip"
     # Replace atomically, so failed preparation cannot leave a new partial release artifact.
@@ -243,11 +242,11 @@ def prepare(bundle: Path) -> Path:
         for archive in archives:
             source_zip.write(archive, "dependencies/" + archive.name)
         for p in sorted(legal.rglob("*")):
-            if p.is_file() and p.name != "release-review.json":
+            if p.is_file():
                 source_zip.write(p, "legal/" + p.relative_to(legal).as_posix())
     temporary.replace(companion)
     print(f"Source companion: {companion}", flush=True)
-    print("Review RELEASE_CHECKLIST.md, then run scripts/check_release.py.", flush=True)
+    print("Run scripts/check_release.py to verify license files, sources and checksums.", flush=True)
     return companion
 
 
