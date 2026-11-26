@@ -6,11 +6,31 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata as metadata
 import json
+import platform
 import re
 import shutil
 import sys
 import tomllib
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def legal_directory(bundle: Path) -> Path:
+    candidates = [bundle / "_internal/apearchivesextractor/legal/generated",
+                  bundle / "Contents/Resources/apearchivesextractor/legal/generated"]
+    for candidate in candidates:
+        if (candidate / "component-manifest.json").is_file():
+            return candidate
+    raise RuntimeError(f"No generated license inventory in {bundle}; rebuild the application first")
+
+
+def bundle_file(bundle: Path, name: str) -> Path:
+    for base in (bundle / "_internal", bundle / "Contents/Frameworks", bundle / "Contents/Resources", bundle):
+        candidate = base / name
+        if candidate.is_file():
+            return candidate
+    raise RuntimeError(f"Bundled file not found: {name}")
 
 
 def digest(path: Path) -> str:
@@ -23,18 +43,29 @@ def slug(name: str) -> str:
 
 
 def legal_file(path: str) -> bool:
-    name = Path(path).name.lower()
+    entry = Path(path)
+    if entry.suffix.lower() in {".py", ".pyc", ".pyo"}:
+        return False
+    name = entry.name.lower()
     return (name.startswith(("license", "licence", "copying", "copyright", "notice", "authors"))
             or name == "qt_attributions.json"
-            or any(part.lower() in {"licenses", "licences"} for part in Path(path).parts))
+            or any(part.lower() in {"licenses", "licences"} for part in entry.parts))
 
 
 def application_files(root: Path) -> list[Path]:
-    files = [p for p in root.iterdir() if p.is_file() and
-             (p.suffix in {".md", ".toml", ".txt", ".bat"} or p.name in {"LICENSE", "NOTICE", ".gitignore"})]
-    for folder in ("src", "scripts", "tests", "packaging", "native", "images", "docs"):
-        files.extend(p for p in (root / folder).rglob("*") if p.is_file() and
-                     "__pycache__" not in p.parts and not any(x.endswith(".egg-info") for x in p.parts) and p.suffix != ".pyc")
+    files = [root / name for name in (
+        "AGENTS.md", "LICENSE", "NOTICE", "README.md", "SOURCES.md",
+        "build_installer.bat", "pyproject.toml", "requirements.txt", ".gitignore", ".gitattributes",
+    ) if (root / name).is_file()]
+    source_types = {
+        ".bat", ".cpp", ".def", ".desktop", ".h", ".icns", ".ico", ".iss",
+        ".manifest", ".md", ".png", ".ps1", ".py", ".rc", ".sh", ".spec",
+        ".svg", ".txt", ".vcxproj", ".xml",
+    }
+    for folder in ("src", "scripts", "tests", "build_tools", "native", "images", "docs"):
+        files.extend(p for p in (root / folder).rglob("*") if p.suffix.lower() in source_types and p.is_file()
+                     and not any(part.startswith(".") or part.endswith(".egg-info") or part == "__pycache__"
+                                 for part in p.relative_to(root).parts))
     return sorted(files)
 
 
@@ -111,6 +142,17 @@ def collect(root: Path, analysis: object, initial_snapshot: dict[str, str] | Non
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, destination)
             license_paths.append(destination.relative_to(output).as_posix())
+        if not license_paths and name in {"pyside6-essentials", "shiboken6"}:
+            # Some Qt for Python wheels omit standalone license texts.
+            # Use the checksum-verified upstream source for the exact version.
+            from prepare_release_sources import CACHE_ROOT, copy_archive_notices, download, qt_binding_source
+
+            cache = CACHE_ROOT / "source-cache"
+            cache.mkdir(parents=True, exist_ok=True)
+            url, checksum = qt_binding_source(d.version)
+            archive = download(url, cache, checksum)
+            notices = copy_archive_notices(archive, output / "licenses" / name)
+            license_paths.extend(f"licenses/{name}/{path}" for path in notices)
         classifiers = [c.rsplit(" :: ", 1)[-1] for c in d.metadata.get_all("Classifier", ()) if c.startswith("License ::")]
         license_name = d.metadata.get("License-Expression") or d.metadata.get("License") or "; ".join(classifiers) or "See included license text"
         if not license_paths:
@@ -118,17 +160,19 @@ def collect(root: Path, analysis: object, initial_snapshot: dict[str, str] | Non
         components.append({"name": d.metadata["Name"], "version": d.version, "license": license_name,
                            "license_files": license_paths, "source_metadata": f"https://pypi.org/pypi/{name}/{d.version}/json"})
 
-    python_license = Path(sys.base_prefix) / "LICENSE.txt"
-    if not python_license.exists():
-        python_license = Path(sys.base_prefix) / "LICENSE"
-    if not python_license.exists():
-        raise RuntimeError("Python license text is missing from this interpreter installation")
+    python_license = next((p for p in (
+        Path(sys.base_prefix) / "LICENSE.txt",
+        Path(sys.base_prefix) / "LICENSE",
+        Path(sys.base_prefix) / f"lib/python{sys.version_info.major}.{sys.version_info.minor}/LICENSE.txt",
+    ) if p.is_file()), None)
+    if python_license is None:
+        raise RuntimeError("Python license is missing. Use an upstream CPython installation with its license.")
     destination = output / "licenses" / "python" / "LICENSE.txt"
     destination.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(python_license, destination)
     project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]
     inventory = {"schema_version": 1, "application_version": project["version"], "application_license": project["license"],
-                 "python_version": sys.version.split()[0], "platform": sys.platform,
+                 "python_version": sys.version.split()[0], "platform": sys.platform, "architecture": platform.machine(),
                  "application_files_sha256": snapshot,
                  "components": components, "binaries": binaries}
     if any(slug(c["name"]).startswith("pyside6") for c in components):

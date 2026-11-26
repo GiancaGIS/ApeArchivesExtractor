@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=ApeArchivesExtractor
+Comment=Browse, pack and extract archives
+Comment[it]=Sfoglia, comprimi ed estrai archivi
+Exec=apearchivesextractor-gui %f
+Icon=com.giancagis.apearchivesextractor
+Terminal=false
+Categories=Utility;Archiving;
+MimeType=application/zip;application/x-7z-compressed;application/vnd.rar;application/x-compressed-tar;

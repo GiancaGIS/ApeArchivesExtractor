@@ -6,8 +6,9 @@
 - `src/apearchivesextractor/`: archive service, models, security checks and CLI.
 - `adapters/`: ZIP, 7z, RAR and TAR.GZ backends; `gui/`: windows, Qt workers,
   drag and drop, preferences, update checking and toast notifications.
-- `scripts/` and `packaging/`: PyInstaller builds, Inno Setup installer, license
-  collection, dependency source archives and release integrity verification.
+- `build_tools/`: platform build entry points, branding, PyInstaller and
+  Inno Setup packaging, license collection and release checks.
+- `scripts/`: Windows registration helpers and compatibility entry points.
 - `native/shell_extension/`: optional Windows Explorer C++ shell extension.
 - `tests/`: core, GUI, security and packaging regression tests.
 
@@ -63,15 +64,21 @@ and audits resolved dependencies using pip-audit.
 
 ## Builds and distribution
 
-- Use `scripts/build_windows.ps1` for portable Windows builds, and
-  `build_installer.bat` or `scripts/build_windows_installer.ps1` for the installer.
+- Use `build_tools/windows/build_installer.bat` for Windows and
+  `build_tools/linux/build_linux_installer.sh` for Linux. Use `-BundleOnly` on
+  Windows to build the portable folder.
+- Keep Windows and Linux release builds in temporary neutral directories with
+  their own virtual environments. Check bundle payloads and distribution files
+  for local paths before copying them into `dist/`. Keep host paths in local
+  build records only.
 - The Windows package includes the console command `ape-arch.exe`. Installer
   PATH updates must respect per-user/all-users scope, avoid duplicates and remove
   only entries owned by this installer. Test the updater with in-memory keys.
-- `-SkipBuild` reuses a portable build with prepared source archives and retains
-  integrity checks. There is one normal installer name, without an experimental
-  mode or experimental-version warnings.
-- Windows packaging needs Inno Setup 6. The shell extension needs Visual Studio
+- `-SkipBuild` reuses a portable build from the current sources and checks its
+  bundled notices and hashes. Windows and Linux builds export DependencySources
+  locally. Verify the corresponding GitHub tag before publishing a release.
+  There is one normal installer name.
+- Windows packaging needs Inno Setup 7. The shell extension needs Visual Studio
   C++ and Windows SDK. Build macOS packages on macOS.
 - Explorer's archive property page is native C++/COM, compiled with MSVC. Keep
   Python/Qt out of the Explorer process: metadata comes from `ape-arch info` in

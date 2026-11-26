@@ -8,7 +8,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $root
 
 $project = Join-Path $root "native\shell_extension\ApeArchivesExtractorShellExtension.vcxproj"
@@ -131,15 +131,17 @@ if ($Configuration -eq "Release") {
     $bundleRoot = Split-Path -Parent $output
     $runtimeSeries = if ([version]$redistVersion.Name -ge [version]"14.50") { "2026" } else { "2022" }
     $records = @()
+    $localSources = [ordered]@{}
     foreach ($file in Get-ChildItem -LiteralPath $runtimeDir.FullName -Filter "*.dll") {
         $destinations = @($bundleRoot, (Join-Path $bundleRoot "_internal"), (Join-Path $bundleRoot "_internal\PySide6"))
         foreach ($directory in $destinations) {
             $destination = Join-Path $directory $file.Name
             if ($directory -ne $bundleRoot -and -not (Test-Path -LiteralPath $destination -PathType Leaf)) { continue }
             Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+            $relative = $destination.Substring($bundleRoot.Length + 1).Replace("\", "/")
+            $localSources[$relative] = $file.FullName
             $records += [ordered]@{
-                path = $destination.Substring($bundleRoot.Length + 1).Replace("\", "/")
-                source = $file.FullName
+                path = $relative
                 sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
                 version = $file.VersionInfo.FileVersion
             }
@@ -147,11 +149,11 @@ if ($Configuration -eq "Release") {
     }
     $legalDir = Join-Path $root "dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated"
     [ordered]@{
-        visual_studio = $visualStudioRoot
         runtime_version = $redistVersion.Name
         license_series = $runtimeSeries
         redistribution_terms = "https://learn.microsoft.com/en-us/visualstudio/releases/$runtimeSeries/redistribution"
         files = $records
     } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $legalDir "windows-runtime.json") -Encoding UTF8
+    $localSources | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $root "build\windows-runtime-local.json") -Encoding UTF8
     Write-Host "Runtime C++ redistribuibile incluso: $($redistVersion.Name)"
 }

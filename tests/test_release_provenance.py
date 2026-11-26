@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build_tools/common"))
 import verify_release_provenance as provenance
 from collect_licenses import digest
 
@@ -33,8 +33,11 @@ def native_bundle(tmp_path, monkeypatch):
                      {"path": "python314.dll", "owner": None, "sha256": digest(python)}],
     }))
     (legal / "windows-runtime.json").write_text(json.dumps({"files": [{
-        "path": "_internal/PySide6/msvcp140.dll", "source": str(original), "sha256": digest(original),
+        "path": "_internal/PySide6/msvcp140.dll", "sha256": digest(original),
     }]}))
+    local = tmp_path / "build/windows-runtime-local.json"
+    local.parent.mkdir()
+    local.write_text(json.dumps({"_internal/PySide6/msvcp140.dll": str(original)}))
     payload = tmp_path / "python.zip"
     with zipfile.ZipFile(payload, "w") as archive:
         archive.writestr("python314.dll", python.read_bytes())
@@ -63,11 +66,11 @@ def test_native_provenance_rejects_unexplained_dll(native_bundle):
         provenance.verify(bundle)
 
 
-def test_native_provenance_rejects_debug_runtime(native_bundle):
-    bundle, legal = native_bundle
-    path = legal / "windows-runtime.json"
+def test_native_provenance_rejects_debug_runtime(native_bundle, tmp_path):
+    bundle, _ = native_bundle
+    path = tmp_path / "build/windows-runtime-local.json"
     data = json.loads(path.read_text())
-    data["files"][0]["source"] = str(bundle / "Redist/debug_nonredist/msvcp140.dll")
+    data["_internal/PySide6/msvcp140.dll"] = str(bundle / "Redist/debug_nonredist/msvcp140.dll")
     path.write_text(json.dumps(data))
     with pytest.raises(RuntimeError, match="Not a release redistributable"):
         provenance.verify(bundle)

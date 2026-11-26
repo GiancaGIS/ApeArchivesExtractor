@@ -4,11 +4,10 @@
 from __future__ import annotations
 
 import shutil
-import tempfile
 from pathlib import Path, PurePosixPath
 from typing import Callable, Iterable
 
-from PySide6.QtCore import QEvent, QEventLoop, QPoint, Qt, QThread, QTimer, Slot
+from PySide6.QtCore import QEvent, QEventLoop, QPoint, Qt, QThread, QThreadPool, QTimer, Slot
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QDragEnterEvent, QDropEvent, QFont, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -75,6 +74,8 @@ class MainWindow(QMainWindow):
         self._confirm_overwrite_action: QAction | None = None
         self._drag_extract_dirs: list[Path] = []
         self._preparing_drag = False
+        self._drag_cancelled = False
+        self._can_delete_from_loaded_archive = False
 
         self.archive_edit = QLineEdit()
         self.archive_edit.setClearButtonEnabled(True)
@@ -460,6 +461,7 @@ class MainWindow(QMainWindow):
         self.current_archive = path
         self._forced_archive_format = forced_format
         self._current_entries = []
+        self._can_delete_from_loaded_archive = False
         self.archive_edit.setText(str(path))
         self.filter_edit.clear()
         self.archive_tree.clear()
@@ -707,38 +709,56 @@ class MainWindow(QMainWindow):
         )
 
     def _prepare_selected_file_drag(self) -> list[Path]:
-        if self.current_archive is None or self._busy:
+        if self.current_archive is None or self._busy or self._preparing_drag:
             return []
         members = self._selected_members()
         if not members:
             return []
 
-        temp_dir = Path(tempfile.mkdtemp(prefix="apearchivesextractor_drag_"))
-        paths: list[Path] = []
+        prepared: list[tuple[Path, list[Path]]] = []
         loop = QEventLoop(self)
+        app = QApplication.instance()
         self._preparing_drag = True
+        self._drag_cancelled = False
+        app.installEventFilter(self)
+        self.archive_tree.viewport().setCursor(Qt.CursorShape.BusyCursor)
         try:
             self.statusBar().showMessage(self._tr("drag.preparing"))
             self._start_worker(
-                "extract_drag", self.current_archive, temp_dir, members,
+                "extract_drag", self.current_archive, members,
                 password=self._password(),
                 archive_format=self._forced_archive_format.value if self._forced_archive_format else None,
-                on_result=lambda result: paths.extend(result),
+                on_result=prepared.append,
                 on_finished=loop.quit,
                 success_message=self._tr("drag.extract.log", count=len(members)),
             )
             loop.exec()
         finally:
+            app.removeEventFilter(self)
+            self.archive_tree.viewport().unsetCursor()
             self._preparing_drag = False
             loop.deleteLater()
-            if not paths:
-                shutil.rmtree(temp_dir, ignore_errors=True)
-        if not paths:
+        if not prepared:
+            return []
+        temp_dir, paths = prepared[0]
+        if self._drag_cancelled or not paths:
+            QThreadPool.globalInstance().start(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
             return []
         self._drag_extract_dirs.append(temp_dir)
         return paths
 
+    def eventFilter(self, watched, event: QEvent) -> bool:  # noqa: N802 - Qt naming
+        if self._preparing_drag and not self._drag_cancelled:
+            if event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+                self.cancel_operation()
+            if event.type() == QEvent.Type.KeyPress and event.key() == Qt.Key.Key_Escape:
+                self.cancel_operation()
+                return True
+        return super().eventFilter(watched, event)
+
     def cancel_operation(self) -> None:
+        if self._preparing_drag:
+            self._drag_cancelled = True
         if self._worker is None or not self._busy:
             return
         self._worker.cancel()
@@ -763,6 +783,7 @@ class MainWindow(QMainWindow):
         self.current_archive = archive_path
         self._forced_archive_format = None
         self._current_entries = []
+        self._can_delete_from_loaded_archive = False
         self.archive_edit.setText(str(archive_path))
         self.filter_edit.clear()
         self.archive_tree.clear()
@@ -912,6 +933,11 @@ class MainWindow(QMainWindow):
     def _populate_entries(self, result: object) -> None:
         entries = result if isinstance(result, list) else []
         self._current_entries = entries  # type: ignore[assignment]
+        self._can_delete_from_loaded_archive = (
+            self.current_archive is not None
+            and self._effective_archive_format() == ArchiveFormat.ZIP
+            and not is_spanned_archive(self.current_archive)
+        )
         self.archive_tree.populate(entries)  # type: ignore[arg-type]
         self.extract_all_btn.setEnabled(bool(entries))
         self._update_summary_label()
@@ -932,11 +958,7 @@ class MainWindow(QMainWindow):
         has_selection = bool(members)
         self.extract_selected_btn.setEnabled(has_selection and self.current_archive is not None and not self._busy)
         self.delete_selected_btn.setEnabled(
-            has_selection
-            and self.current_archive is not None
-            and not self._busy
-            and self._effective_archive_format() == ArchiveFormat.ZIP
-            and not is_spanned_archive(self.current_archive)
+            has_selection and self._can_delete_from_loaded_archive and not self._busy
         )
         if not has_selection:
             self.selection_label.setText(self._tr("selection.none"))
@@ -1190,6 +1212,8 @@ class MainWindow(QMainWindow):
 
     @Slot(str, str, object, object)
     def _on_progress(self, message: str, current_item: str, processed: int, total: int) -> None:
+        if self._preparing_drag and self._drag_cancelled:
+            return
         if total > 0 and processed >= 0:
             percent = min(100, int((processed / total) * 100))
             self.progress.setRange(0, 100)
@@ -1198,7 +1222,9 @@ class MainWindow(QMainWindow):
         else:
             self.progress.setRange(0, 0)
             progress_text = ""
-        if current_item:
+        if self._preparing_drag:
+            details = self._tr("drag.preparing")
+        elif current_item:
             details = f"{message}: {current_item}"
         else:
             details = message
@@ -1210,6 +1236,9 @@ class MainWindow(QMainWindow):
         success_message = self._worker_success_message
         if on_result is not None:
             on_result(result)
+        if self._preparing_drag and self._drag_cancelled:
+            self._on_worker_cancelled()
+            return
         self._log(success_message)
         self.statusBar().showMessage(success_message)
         self.progress.setRange(0, 100)
@@ -1224,6 +1253,9 @@ class MainWindow(QMainWindow):
 
     @Slot(str, str)
     def _on_worker_error(self, message: str, detail: str) -> None:
+        if self._preparing_drag and self._drag_cancelled:
+            self._on_worker_cancelled()
+            return
         self._log(self._tr("worker.error_log", message=message))
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
@@ -1261,18 +1293,15 @@ class MainWindow(QMainWindow):
         self.password_edit.setEnabled(enabled)
         self.show_password_check.setEnabled(enabled)
         self.filter_edit.setEnabled(enabled)
-        self.archive_tree.setEnabled(enabled)
+        # Keep the tree enabled during preparation so it retains the mouse
+        # grab and Qt can see a release before the native drag starts.
+        self.archive_tree.setEnabled(enabled or self._preparing_drag)
         self.cancel_btn.setEnabled(not enabled and self._busy)
         has_entries = self.archive_tree.topLevelItemCount() > 0
         self.extract_all_btn.setEnabled(enabled and self.current_archive is not None and has_entries)
-        self.extract_selected_btn.setEnabled(enabled and bool(self._selected_members()))
-        self.delete_selected_btn.setEnabled(
-            enabled
-            and bool(self._selected_members())
-            and self.current_archive is not None
-            and self._effective_archive_format() == ArchiveFormat.ZIP
-            and not is_spanned_archive(self.current_archive)
-        )
+        if not enabled:
+            self.extract_selected_btn.setEnabled(False)
+            self.delete_selected_btn.setEnabled(False)
 
     def _log(self, message: str) -> None:
         self.log.append(message)

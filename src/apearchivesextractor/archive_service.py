@@ -87,9 +87,13 @@ class ArchiveService:
         progress: ProgressCallback = None,
         should_cancel: CancelCallback = None,
         archive_format: ArchiveFormat | str | None = None,
+        *,
+        private_output: bool = False,
     ) -> None:
+        """Extract members. A private output must be new and disposable by the caller."""
         path = Path(archive_path)
         adapter = self._adapter_for_path(path, archive_format)
+        options = {"private_output": True} if private_output and isinstance(adapter, SevenZAdapter) else {}
         adapter.extract_members(
             path,
             Path(output_dir),
@@ -97,6 +101,7 @@ class ArchiveService:
             password=password,
             progress=progress,
             should_cancel=should_cancel,
+            **options,
         )
 
     def extract_member_flat(

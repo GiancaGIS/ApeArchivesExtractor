@@ -8,7 +8,7 @@ from typing import Iterable
 from apearchivesextractor.archive_service import ArchiveService
 from apearchivesextractor.errors import ArchiveMemberNotFoundError, OperationCancelledError
 from apearchivesextractor.models import CancelCallback, ProgressCallback
-from apearchivesextractor.security import normalize_archive_name, safe_output_path
+from apearchivesextractor.security import matches_member_selection, normalize_archive_name, safe_output_path
 
 
 def prepare_drag_paths(
@@ -30,9 +30,11 @@ def prepare_drag_paths(
     and must retain it while the receiving application copies its contents.
     """
     selected: list[str] = []
+    selected_paths: set[str] = set()
     for member in sorted({normalize_archive_name(m) for m in members}, key=lambda m: (m.count("/"), m)):
-        if not any(member.startswith(parent + "/") for parent in selected):
+        if not matches_member_selection(member, selected_paths):
             selected.append(member)
+            selected_paths.add(member)
     if not selected:
         return []
 
@@ -44,7 +46,7 @@ def prepare_drag_paths(
     contents = temporary_dir / "contents"
     service.extract_members(
         archive_path, contents, selected, password=password, archive_format=archive_format,
-        progress=progress, should_cancel=should_cancel,
+        progress=progress, should_cancel=should_cancel, private_output=True,
     )
     export_dir = temporary_dir / "files"
     export_dir.mkdir(parents=True, exist_ok=True)
@@ -67,4 +69,5 @@ def prepare_drag_paths(
         # Same filesystem: avoid copying large files a second time for staging.
         source.rename(destination)
         paths.append(destination)
+    check_cancelled()
     return paths

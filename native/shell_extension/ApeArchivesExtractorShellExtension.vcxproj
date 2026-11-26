@@ -62,6 +62,9 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
+      <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(IntDir)$(TargetName).pdb</ProgramDatabaseFile>
       <OptimizeReferences>true</OptimizeReferences>
       <ModuleDefinitionFile>ApeArchivesExtractorShellExtension.def</ModuleDefinitionFile>
       <AdditionalDependencies>Shlwapi.lib;Ole32.lib;Shell32.lib;Advapi32.lib;Comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>

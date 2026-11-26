@@ -24,6 +24,7 @@ from apearchivesextractor.security import (
     archive_name_for,
     atomic_output_file,
     is_member_selected,
+    matches_member_selection,
     is_zip_symlink,
     normalize_archive_name,
     resolve_safe_input,
@@ -155,7 +156,10 @@ class ZipAdapter(ArchiveAdapter):
         with _open_zip(archive_path) as archive:
             infos = archive.infolist()
             if selected_members is not None:
-                infos = [info for info in infos if is_member_selected(info.filename, selected_members)]
+                selected_paths = {normalize_archive_name(member) for member in selected_members}
+                infos = [
+                    info for info in infos if matches_member_selection(normalize_archive_name(info.filename), selected_paths)
+                ]
                 if not infos:
                     raise ArchiveMemberNotFoundError(
                         "No archive members matched the current selection."

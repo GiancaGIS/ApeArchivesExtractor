@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QHeaderView, QStyle, QTreeWidget, QT
 
 from apearchivesextractor.gui.i18n import DEFAULT_LANGUAGE, normalize_language, translate
 from apearchivesextractor.models import ArchiveEntry
+from apearchivesextractor.security import matches_member_selection
 
 
 class ArchiveTreeItem(QTreeWidgetItem):
@@ -78,7 +79,7 @@ class ArchiveTreeWidget(QTreeWidget):
         return translate(self._language, key, **kwargs)
 
     def startDrag(self, supported_actions: Qt.DropAction) -> None:  # noqa: N802 - Qt naming
-        if self._prepare_drag_paths is None or not self.selected_members():
+        if self._prepare_drag_paths is None:
             return
         paths = self._prepare_drag_paths()
         if not paths:
@@ -86,7 +87,7 @@ class ArchiveTreeWidget(QTreeWidget):
 
         # Publish filesystem URLs, without Qt's internal tree-row MIME format.
         mime_data = QMimeData()
-        mime_data.setUrls([QUrl.fromLocalFile(str(path.resolve())) for path in paths])
+        mime_data.setUrls([QUrl.fromLocalFile(str(path.absolute())) for path in paths])
         drag = QDrag(self)
         drag.setMimeData(mime_data)
         try:
@@ -331,10 +332,11 @@ class ArchiveTreeWidget(QTreeWidget):
     @staticmethod
     def _collapse_descendant_members(members: list[str]) -> list[str]:
         collapsed: list[str] = []
+        selected_paths: set[str] = set()
         for member in sorted(members, key=lambda value: (value.count("/"), value.lower())):
-            if any(member == parent or member.startswith(parent + "/") for parent in collapsed):
-                continue
-            collapsed.append(member)
+            if not matches_member_selection(member, selected_paths):
+                collapsed.append(member)
+                selected_paths.add(member)
         return collapsed
 
     @staticmethod

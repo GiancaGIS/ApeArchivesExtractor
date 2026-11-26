@@ -4,30 +4,38 @@ This release of ApeArchivesExtractor is GPL-3.0-only. Its canonical repository i
 [GiancaGIS/ApeArchivesExtractor](https://github.com/GiancaGIS/ApeArchivesExtractor).
 Third-party components retain their original licenses.
 
-Binary releases must be accompanied by the exact application source snapshot,
-build scripts, dependency versions, license notices, and corresponding library
-sources required by GPL/LGPL. A link to the current default branch is insufficient
-to identify the source of an older binary. Python bytecode is not source code.
+For published binaries, use the corresponding [release page](https://github.com/GiancaGIS/ApeArchivesExtractor/releases)
+and follow its directions to the matching source downloads. Source availability
+covers the exact application code and build scripts, plus corresponding sources
+for the bundled GPL/LGPL components. See [GPLv3 section 6](https://www.gnu.org/licenses/gpl-3.0.en.html#section6)
+and [LGPLv3 section 4](https://www.gnu.org/licenses/lgpl-3.0.en.html#section4).
 
-After a build, run `python scripts/prepare_release_sources.py`. It downloads the
-source distributions of the included Python components and the Qt modules at the
-installed Qt version, checks available upstream SHA-256 digests, and creates a
-source companion archive in `dist/`. It does not run downloaded code. It also
-copies native license/attribution files from the source archives into the app's
-`legal/` directory. Run it before compiling the installer.
+Windows and Linux builds export
+`ApeArchivesExtractor-DependencySources-<version>.zip` next to the binaries.
+It contains dependency sources, legal materials, the recorded build environment
+and the GitHub source link for the planned tag `v<version>`. Packages contain
+license texts, attribution, the component inventory and
+`legal/source-manifest.json` with source URLs and SHA-256 hashes.
 
-Publish the resulting `ApeArchivesExtractor-sources-<version>.zip` beside the
-portable/installer downloads and identify it explicitly in the release notes.
-The archive contains `application/`, `dependencies/`, a pinned build environment,
-the exact component inventory and hashes. Keep it available while distributing
-the corresponding binary. Do not publish a release if the preparation or the
-release check fails. See `RELEASE_CHECKLIST.md` for the publishing steps.
+To export the same type of ZIP again from a local bundle, use
+`python build_tools/common/prepare_release_sources.py --github-tag v<version>`.
+You can prepare a release draft before pushing the tag. After pushing it, run
+`python build_tools/common/check_release.py` to verify the public tag against
+the binary. Publish the ZIP and link to the verified GitHub archive next to the binary.
 
-For binaries, the generated `legal/source-manifest.json` identifies the source
-archives, original URLs and SHA-256 hashes. URLs alone are not a promise of future
-availability: the companion archive carries the copies maintained by this project.
+For a build without a matching public tag, run the same command without
+`--github-tag` from the matching checkout. The resulting
+`ApeArchivesExtractor-sources-<version>.zip` includes both `application/` and
+`dependencies/`. Linux archive names also identify the platform and architecture.
 
-To modify the application or its GPL/LGPL libraries, unpack the source companion,
+A ZIP is one way to offer equivalent, free access to the corresponding source.
+A separate source location can work if it contains the exact materials, remains
+available while required, and is clearly linked beside the binary. GitHub's
+automatic tag archive covers the repository at that tag. Make the sources of
+the bundled GPL/LGPL libraries available as well. See
+[Building and releasing](docs/BUILDING.md) for the release procedure.
+
+To modify the application or its GPL/LGPL libraries, obtain both sets of sources,
 install the recorded build environment on the same platform/Python version,
 replace the relevant dependency with your modified source build and use the
 supplied scripts to rebuild. No application restriction prohibits this or reverse

@@ -215,6 +215,15 @@ def is_member_selected(member_name: str, selected_members: Iterable[str]) -> boo
     return False
 
 
+def matches_member_selection(path: str, selected_paths: set[str]) -> bool:
+    """Match a normalized member path or any of its selected parents."""
+    while path:
+        if path in selected_paths:
+            return True
+        path = path.rpartition("/")[0]
+    return False
+
+
 def iter_input_files(input_path: Path) -> list[Path]:
     """Return all files below a path, or the path itself if it is a file."""
 

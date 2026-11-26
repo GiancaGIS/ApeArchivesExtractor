@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import shutil
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
@@ -22,7 +22,7 @@ from apearchivesextractor.models import ArchiveEntry, CancelCallback, ProgressCa
 from apearchivesextractor.security import (
     archive_name_for,
     atomic_copy2,
-    is_member_selected,
+    matches_member_selection,
     normalize_archive_name,
     resolve_safe_input,
     safe_output_path,
@@ -103,11 +103,13 @@ class SevenZAdapter(ArchiveAdapter):
         password: str | None = None,
         progress: ProgressCallback = None,
         should_cancel: CancelCallback = None,
+        *,
+        private_output: bool = False,
     ) -> None:
         selected = list(members)
         if not selected:
             return
-        self._extract(archive_path, output_dir, selected, password, progress, should_cancel)
+        self._extract(archive_path, output_dir, selected, password, progress, should_cancel, private_output=private_output)
 
     def _extract(
         self,
@@ -117,27 +119,27 @@ class SevenZAdapter(ArchiveAdapter):
         password: str | None,
         progress: ProgressCallback,
         should_cancel: CancelCallback = None,
+        *,
+        private_output: bool = False,
     ) -> None:
-        py7zr = _import_py7zr()
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=not private_output)
 
         with _open_seven_zip(archive_path, password) as archive:
             entries = self._entries_from_items(archive.list())
-            names = [entry.path for entry in entries]
-            for entry in entries:
-                normalize_archive_name(entry.path)
+            normalized_paths = [normalize_archive_name(entry.path) for entry in entries]
 
             targets = None
             planned_entries = entries
             if selected_members is not None:
-                targets = [name for name in names if is_member_selected(name, selected_members)]
-                if not targets:
+                selected_paths = {normalize_archive_name(member) for member in selected_members}
+                planned_entries = [
+                    entry for entry, path in zip(entries, normalized_paths) if matches_member_selection(path, selected_paths)
+                ]
+                if not planned_entries:
                     raise ArchiveMemberNotFoundError(
                         "No archive members matched the current selection."
                     )
-                planned_entries = [
-                    entry for entry in entries if is_member_selected(entry.path, selected_members)
-                ]
+                targets = [entry.path for entry in planned_entries]
 
             validate_extraction_plan(planned_entries)
 
@@ -145,7 +147,11 @@ class SevenZAdapter(ArchiveAdapter):
             if progress:
                 progress(ProgressEvent("Extracting 7Z archive", archive_path.name))
 
-            with TemporaryDirectory(prefix="apearchivesextractor_7z_", dir=output_dir.parent) as tmp:
+            # Drag exports already own a disposable directory. It can be the
+            # staging tree itself, as long as validation precedes publication.
+            staging = (nullcontext(output_dir) if private_output else
+                       TemporaryDirectory(prefix="apearchivesextractor_7z_", dir=output_dir.parent))
+            with staging as tmp:
                 staging_dir = Path(tmp)
                 if targets is None:
                     archive.extractall(path=staging_dir)
@@ -154,7 +160,8 @@ class SevenZAdapter(ArchiveAdapter):
 
                 _raise_if_cancelled(should_cancel)
                 self._validate_staged_tree(staging_dir)
-                self._copy_staged_tree(staging_dir, output_dir, progress, should_cancel)
+                if not private_output:
+                    self._copy_staged_tree(staging_dir, output_dir, progress, should_cancel)
 
             _raise_if_cancelled(should_cancel)
             if progress:

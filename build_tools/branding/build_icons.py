@@ -96,7 +96,7 @@ def write_icns(svg_path: Path, icns_path: Path) -> None:
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     assets_dir = root / "src" / "apearchivesextractor" / "assets"
     app = QGuiApplication(sys.argv)
     conversions = {

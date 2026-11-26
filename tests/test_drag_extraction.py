@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from apearchivesextractor.archive_service import ArchiveService
+from apearchivesextractor.adapters.sevenz_adapter import SevenZAdapter
 from apearchivesextractor.errors import OperationCancelledError, UnsafeArchivePathError
 from apearchivesextractor.gui.drag_extraction import prepare_drag_paths
 
@@ -89,19 +90,40 @@ def test_drag_rejects_unsafe_member_before_extraction(tmp_path) -> None:
         prepare_drag_paths(NoExtraction(), tmp_path / "any.zip", tmp_path / "drag", ["../outside.txt"])
 
 
+def test_drag_stages_password_protected_7z_without_copying_extracted_files(tmp_path, monkeypatch) -> None:
+    import py7zr
+
+    path = tmp_path / "renamed.archive"
+    with py7zr.SevenZipFile(path, "w", password="test password") as output:
+        output.writestr(b"selected", "folder/file.txt")
+        output.writestr(b"other", "folder/other.txt")
+
+    def unexpected_copy(*args):
+        pytest.fail("A drag's private directory can hold the validated staging tree directly")
+
+    monkeypatch.setattr(SevenZAdapter, "_copy_staged_tree", unexpected_copy)
+    stage = tmp_path / "drag"
+    paths = prepare_drag_paths(ArchiveService(), path, stage, ["folder/file.txt"],
+                               password="test password", archive_format="7z")
+    assert [item.read_bytes() for item in paths] == [b"selected"]
+    assert not (stage / "contents/folder/other.txt").exists()
+
+
 def test_drag_qt_integration_exports_selected_urls_and_keeps_gui_responsive(tmp_path) -> None:
     # The full suite creates QCoreApplication, so run QWidget coverage separately.
     code = r'''
-import shutil, sys, tempfile, zipfile
+import shutil, sys, time, zipfile
 from pathlib import Path
 from PySide6.QtCore import QEvent, QPointF, QSettings, QTimer, Qt
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QMessageBox, QTreeWidget
 from apearchivesextractor.archive_service import ArchiveService
+from apearchivesextractor.errors import OperationCancelledError
 from apearchivesextractor.gui.main_window import MainWindow
 from apearchivesextractor.gui import archive_tree
 from apearchivesextractor.gui import settings as settings_module
+from apearchivesextractor.gui import workers
 
 root = Path(sys.argv[1])
 settings_module.QSettings = lambda *_: QSettings(str(root / 'settings.ini'), QSettings.Format.IniFormat)
@@ -173,6 +195,36 @@ tree.dragEnterEvent(event)
 tree.dragMoveEvent(event)
 tree.dropEvent(event)
 assert event.ignored and window._drop_paths(event) == []
+
+# Let go during a deliberately slow preparation. This must cancel before a
+# native drag begins and remove the partially prepared directory.
+temporary_dirs = []
+original_prepare = workers.prepare_drag_paths
+def slow_prepare(service, archive, directory, members, *, should_cancel, **kwargs):
+    (directory / 'partial.txt').write_text('partial')
+    temporary_dirs.append(directory)
+    deadline = time.monotonic() + 3
+    while not should_cancel() and time.monotonic() < deadline:
+        time.sleep(0.005)
+    assert should_cancel()
+    raise OperationCancelledError()
+workers.prepare_drag_paths = slow_prepare
+release_states = []
+def release_during_preparation():
+    if not temporary_dirs:
+        if window._preparing_drag:
+            QTimer.singleShot(5, release_during_preparation)
+        return
+    release_states.append((window._preparing_drag, tree.isEnabled(), tree.viewport().cursor().shape(),
+                           window.statusBar().currentMessage()))
+    QTest.mouseRelease(tree.viewport(), Qt.MouseButton.LeftButton, pos=position)
+QTest.mousePress(tree.viewport(), Qt.MouseButton.LeftButton, pos=position)
+QTimer.singleShot(5, release_during_preparation)
+tree.startDrag(Qt.DropAction.CopyAction)
+workers.prepare_drag_paths = original_prepare
+assert release_states == [(True, True, Qt.CursorShape.BusyCursor, window._tr('drag.preparing'))]
+assert len(delivered) == 2 and all(not p.exists() for p in temporary_dirs)
+assert not window._busy and window._thread is None and not window._preparing_drag
 
 # Corrupt archives report an error without publishing partial paths or getting
 # stuck in the nested event loop, and the failed temporary directory is removed.

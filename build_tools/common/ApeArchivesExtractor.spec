@@ -8,13 +8,15 @@ from pathlib import Path
 
 block_cipher = None
 app_name = "ApeArchivesExtractor"
-app_version = "1.1.0"
+app_version = "1.2.0"
 bundle_identifier = "com.giancagis.apearchivesextractor"
 is_windows = sys.platform.startswith("win")
 is_macos = sys.platform == "darwin"
-project_root = Path(SPECPATH).parent
-sys.path.insert(0, str(project_root / "scripts"))
+is_linux = sys.platform.startswith("linux")
+project_root = Path(SPECPATH).parents[1]
+sys.path.insert(0, SPECPATH)
 from collect_licenses import collect, source_snapshot
+from release_privacy import private_metadata
 initial_source_snapshot = source_snapshot(project_root)
 src_root = project_root / "src"
 entry_point = src_root / "apearchivesextractor" / "gui" / "app.py"
@@ -23,12 +25,9 @@ hiddenimports = collect_submodules("py7zr") + ["apearchivesextractor.cli"]
 datas = collect_data_files("apearchivesextractor")
 assets_dir = project_root / "src" / "apearchivesextractor" / "assets"
 app_icon = assets_dir / ("apearchivesextractor_app.icns" if is_macos else "apearchivesextractor_app.ico")
-app_manifest = project_root / "packaging" / "ApeArchivesExtractor.exe.manifest"
-exe_options = {
-    "icon": str(app_icon),
-}
+exe_options = {"icon": str(app_icon)} if not is_linux else {}
 if is_windows:
-    exe_options["manifest"] = str(app_manifest)
+    exe_options["manifest"] = str(project_root / "build_tools/windows/ApeArchivesExtractor.exe.manifest")
 
 
 a = Analysis(
@@ -54,6 +53,15 @@ a.binaries = [entry for entry in a.binaries if Path(entry[0]).name.lower()
               not in {"qpdf.dll", "libqpdf.dylib", "libqpdf.so", "qt6pdf.dll", "libqt6pdf.6.dylib", "opengl32sw.dll"}
               and "QtPdf.framework" not in entry[0]
               and not Path(entry[0]).name.startswith("libQt6Pdf.so")]
+if is_windows:
+    # The Universal CRT and API set forwarders are Windows system components.
+    a.binaries = [entry for entry in a.binaries if Path(entry[0]).name.lower() != "ucrtbase.dll"
+                  and not Path(entry[0]).name.lower().startswith(("api-ms-win-", "ext-ms-win-"))]
+if is_linux:
+    # Keep CPython and the wheels. Let the host provide its own graphics stack,
+    # OpenSSL and other system libraries.
+    a.exclude_system_libraries()
+a.datas = [entry for entry in a.datas if not private_metadata(entry[0])]
 legal_output = collect(project_root, a, initial_source_snapshot)
 a.datas += [("apearchivesextractor/legal/generated/" + path.relative_to(legal_output).as_posix(),
              str(path), "DATA") for path in sorted(legal_output.rglob("*")) if path.is_file()]
@@ -68,7 +76,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=is_macos,
@@ -78,14 +86,14 @@ exe = EXE(
     **exe_options,
 )
 executables = [exe]
-if is_windows:
+if is_windows or is_linux:
     # Reuse the analyzed modules and runtime hooks with a console entry point.
     # Keep the GUI script out of the console executable's startup scripts.
     cli_scripts = [script for script in a.scripts if Path(script[1]).resolve() != entry_point.resolve()]
-    cli_scripts.append(("cli_entry", str(project_root / "packaging" / "cli_entry.py"), "PYSOURCE"))
+    cli_scripts.append(("cli_entry", str(project_root / "build_tools/launchers/cli_entry.py"), "PYSOURCE"))
     executables.append(EXE(
         pyz, cli_scripts, [], exclude_binaries=True, name="ape-arch",
-        debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
+        debug=False, bootloader_ignore_signals=False, strip=False, upx=False,
         console=True, **exe_options,
     ))
 coll = COLLECT(
@@ -94,7 +102,7 @@ coll = COLLECT(
     a.zipfiles,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name=app_name,
 )

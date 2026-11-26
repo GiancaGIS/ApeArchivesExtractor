@@ -2,7 +2,6 @@
 # Copyright (c) 2026 GiancaGIS
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 import sys
@@ -14,10 +13,12 @@ from types import SimpleNamespace
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build_tools/common"))
+import check_release
 from collect_licenses import collect, digest, legal_file, source_snapshot
+import prepare_release_sources
 from prepare_release_sources import copy_archive_notices
-from check_release import check
+from check_release import check, check_bundle
 
 
 def test_collector_copies_actual_component_notices_without_unrelated_test_tools(tmp_path: Path) -> None:
@@ -42,6 +43,7 @@ def test_canonical_spdx_license_directory_is_collected() -> None:
     assert legal_file("qtbase/LICENSES/BSD-3-Clause.txt")
     assert legal_file("module/qt_attributions.json")
     assert not legal_file("module/main.cpp")
+    assert not legal_file("module/licenses/__pycache__/__init__.cpython-314.pyc")
 
 
 def test_pyside_inventory_excludes_unused_shared_namespace_distributions(tmp_path: Path) -> None:
@@ -104,26 +106,100 @@ def release(tmp_path: Path) -> tuple[Path, Path, Path]:
         (legal / name).write_text("legal text", encoding="utf-8")
     binary = bundle / "_internal/library.dll"
     binary.write_bytes(b"original binary")
+    checkout = tmp_path / "src"
+    checkout.mkdir()
+    (checkout / "main.py").write_bytes(b"source code")
+    cache = tmp_path / "cache/source-cache"
+    cache.mkdir(parents=True)
+    dependency = cache / "dependency.tar.gz"
+    dependency.write_bytes(b"dependency source archive")
+    snapshot = source_snapshot(tmp_path)
     inventory = {"application_version": "1.0.0", "components": [], "application_binaries": [],
+                 "application_files_sha256": snapshot,
                  "binaries": [{"path": "library.dll", "bundled_sha256": digest(binary)}]}
     (legal / "component-manifest.json").write_text(json.dumps(inventory))
-    code = b"source code"
-    dependency = b"dependency source archive"
-    sources = {"component_manifest_sha256": digest(legal / "component-manifest.json"),
-               "application_files_sha256": {"main.py": hashlib.sha256(code).hexdigest()},
-               "sources": [{"filename": "dependency.tar.gz", "sha256": hashlib.sha256(dependency).hexdigest(), "notice_files": []}]}
+    sources = {"application_version": "1.0.0", "component_manifest_sha256": digest(legal / "component-manifest.json"),
+               "application_files_sha256": snapshot,
+               "legal_files_sha256": {path.name: digest(path) for path in legal.iterdir()},
+               "sources": [{"filename": dependency.name, "sha256": digest(dependency),
+                            "url": "https://example.org/dependency.tar.gz", "notice_files": []}]}
     (legal / "source-manifest.json").write_text(json.dumps(sources))
     companion = tmp_path / "sources.zip"
     with zipfile.ZipFile(companion, "w") as archive:
-        archive.write(legal / "source-manifest.json", "legal/source-manifest.json")
-        archive.writestr("application/main.py", code)
-        archive.writestr("dependencies/dependency.tar.gz", dependency)
+        for path in legal.iterdir():
+            archive.write(path, "legal/" + path.name)
+        archive.write(checkout / "main.py", "application/src/main.py")
+        archive.write(dependency, "dependencies/dependency.tar.gz")
     return bundle, legal, companion
 
 
 def test_release_accepts_matching_sources_and_license_files(release) -> None:
     bundle, _legal, companion = release
     check(bundle, companion)
+
+
+def test_local_bundle_checks_work_without_source_zip(release) -> None:
+    bundle, _legal, companion = release
+    companion.unlink()
+    check_bundle(bundle)
+    with pytest.raises(FileNotFoundError):
+        check(bundle, companion)
+
+
+def test_release_can_export_sources_later_from_the_sealed_bundle(release, tmp_path, monkeypatch) -> None:
+    bundle, legal, companion = release
+    companion.unlink()
+    monkeypatch.setattr(prepare_release_sources, "ROOT", tmp_path)
+    monkeypatch.setattr(prepare_release_sources, "CACHE_ROOT", tmp_path / "cache")
+    before = digest(legal / "source-manifest.json")
+    assert prepare_release_sources.write_companion(bundle, companion) == companion
+    assert digest(legal / "source-manifest.json") == before
+    check(bundle, companion)
+
+    (tmp_path / "src/main.py").write_text("different source")
+    before = digest(companion)
+    with pytest.raises(RuntimeError, match="source snapshot differs"):
+        prepare_release_sources.write_companion(bundle, companion)
+    assert digest(companion) == before
+
+
+def test_dependency_sources_can_be_prepared_before_pushing_the_tag(release, tmp_path, monkeypatch) -> None:
+    bundle, _legal, _companion = release
+    monkeypatch.setattr(prepare_release_sources, "CACHE_ROOT", tmp_path / "cache")
+    (tmp_path / "src/main.py").write_text("later checkout contents")
+    requests = []
+
+    def tag_archive(url):
+        requests.append(url)
+        assert url.endswith("/archive/refs/tags/v1.0.0.zip")
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as archive:
+            archive.writestr("ApeArchivesExtractor-1.0.0/src/main.py", b"source code")
+        return output.getvalue()
+
+    monkeypatch.setattr(check_release, "github_source_archive", tag_archive)
+    companion = prepare_release_sources.write_companion(bundle, github_tag="v1.0.0")
+    assert requests == []
+    assert companion.name == "ApeArchivesExtractor-DependencySources-1.0.0.zip"
+    with zipfile.ZipFile(companion) as archive:
+        assert "dependencies/dependency.tar.gz" in archive.namelist()
+        assert not any(name.startswith("application/") for name in archive.namelist())
+        reference = json.loads(archive.read(check_release.GITHUB_SOURCE_REFERENCE))
+        assert reference == {"tag": "v1.0.0", "url": check_release.github_source_url("v1.0.0")}
+    check(bundle)
+    assert requests == [check_release.github_source_url("v1.0.0")]
+
+    def mismatching_tag(_url):
+        output = io.BytesIO()
+        with zipfile.ZipFile(output, "w") as archive:
+            archive.writestr("ApeArchivesExtractor-1.0.0/src/main.py", b"different")
+        return output.getvalue()
+
+    monkeypatch.setattr(check_release, "github_source_archive", mismatching_tag)
+    before = digest(companion)
+    with pytest.raises(RuntimeError, match="differs from the build source: src/main.py"):
+        check(bundle)
+    assert digest(companion) == before
 
 
 def test_release_rejects_changed_binary(release) -> None:

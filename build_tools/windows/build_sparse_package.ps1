@@ -6,10 +6,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$root = Split-Path -Parent $PSScriptRoot
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 Set-Location $root
 
-$manifestSource = Join-Path $root "packaging\windows11\AppxManifest.xml"
+$manifestSource = Join-Path $PSScriptRoot "AppxManifest.xml"
 $layoutDir = Join-Path $root "build\windows11\ApeArchivesExtractorIdentity"
 $outputDir = Join-Path $root "dist\ApeArchivesExtractor"
 $packagePath = Join-Path $outputDir "ApeArchivesExtractorIdentity.msix"
