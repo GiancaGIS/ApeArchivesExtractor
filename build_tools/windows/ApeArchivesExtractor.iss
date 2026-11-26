@@ -1,8 +1,11 @@
+#if VER < EncodeVer(7,0,0,0)
+  #error Inno Setup 7 is required to compile this installer.
+#endif
 #define MyAppName "ApeArchivesExtractor"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "GiancaGIS"
 #define MyAppExeName "ApeArchivesExtractor.exe"
-#if FileExists(SourcePath + "..\dist\ApeArchivesExtractor\ApeArchivesExtractorShellExtension.dll")
+#if FileExists(SourcePath + "..\..\dist\ApeArchivesExtractor\ApeArchivesExtractorShellExtension.dll")
   #define WithArchiveProperties
 #endif
 
@@ -10,26 +13,26 @@
 AppId={{0F96F7F9-3D53-4B5B-9B3D-78C168BB4E9E}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+VersionInfoVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
-OutputDir=..\dist
+OutputDir=..\..\dist
 OutputBaseFilename=ApeArchivesExtractorSetup-{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog commandline
-UsePreviousPrivileges=no
-UsePreviousAppDir=no
+UsePreviousPrivileges=yes
+UsePreviousAppDir=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-SetupIconFile=..\src\apearchivesextractor\assets\apearchivesextractor_app.ico
+SetupIconFile=..\..\src\apearchivesextractor\assets\apearchivesextractor_app.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ChangesEnvironment=yes
-LicenseFile=..\dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated\INSTALLER_LICENSE.txt
-InfoAfterFile=..\SOURCES.md
+LicenseFile=..\..\dist\ApeArchivesExtractor\_internal\apearchivesextractor\legal\generated\INSTALLER_LICENSE.txt
 
 [Languages]
 Name: "italian"; MessagesFile: "compiler:Languages\Italian.isl"
@@ -43,11 +46,11 @@ Name: "archiveproperties"; Description: "Mostra la scheda Archivio APE nelle pro
 Name: "setdefault"; Description: "Prova a impostare ApeArchivesExtractor come app predefinita per ZIP, 7Z, RAR e volumi"; GroupDescription: "Associazioni file:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\ApeArchivesExtractor\*"; DestDir: "{app}"; Excludes: "*.pdb,*.lib,*.exp"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "..\scripts\register_file_associations.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\scripts\register_windows11_context_menu.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\scripts\register_cli_path.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\scripts\register_archive_properties.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\dist\ApeArchivesExtractor\*"; DestDir: "{app}"; Excludes: "*.pdb,*.lib,*.exp"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\scripts\register_file_associations.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\scripts\register_windows11_context_menu.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\scripts\register_cli_path.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\scripts\register_archive_properties.ps1"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 Root: HKA; Subkey: "Software\GiancaGIS\ApeArchivesExtractor\Installer"; Flags: uninsdeletekeyifempty

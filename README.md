@@ -78,9 +78,9 @@ can be opened from any recognized volume. Keep all parts together.
 ### Windows installer
 
 Download the installer from [GitHub Releases](https://github.com/GiancaGIS/ApeArchivesExtractor/releases/latest).
-The packaged application includes its Python runtime; a separate Python
-installation is not required. Install for the current user or for all users,
-then open an archive from the app or Explorer.
+The packaged application includes its Python runtime. On first install, choose
+the current user or all users. Updates reuse the existing installation mode
+and directory. Open an archive from the app or Explorer.
 
 The **Add ape-arch to PATH** installer option is selected by default. It adds
 the console command for the current user, or for all users when choosing a
@@ -110,9 +110,9 @@ apearchivesextractor-gui
 ```
 
 To open a file immediately, run `apearchivesextractor-gui archive.zip`.
-The Windows installer is the packaged distribution; macOS and Linux users can
-run from source. Native macOS builds are documented in the
-[build guide](docs/BUILDING.md#macos).
+Windows has an installer. Linux builds produce a Debian package and a portable
+tarball. See the [build guide](docs/BUILDING.md) for distributions built from
+source and the native macOS bundle.
 
 ### Extract with drag & drop
 
@@ -207,8 +207,8 @@ python -m pip install -e ".[dev,package]"
 python -m pytest -q
 ```
 
-See [Building and releasing](docs/BUILDING.md) for portable builds, the Windows
-installer, macOS bundles, icon generation and release checks. Contributor and
+See [Building and releasing](docs/BUILDING.md) for Windows, Linux and macOS
+packages, icon generation and release checks. Contributor and
 coding guidance lives in [AGENTS.md](AGENTS.md).
 
 Report bugs or propose improvements through
@@ -228,7 +228,12 @@ licenses. Packaged applications include collected license texts and the exact
 component inventory under **Help → Licenses and source code**; the CLI provides
 `ape-arch --license`.
 
-Binary releases must include the matching source companion. See
+Binary releases require access to the corresponding source. See
 [SOURCES.md](SOURCES.md) for source availability and rebuilding, and the
-[release instructions](docs/BUILDING.md#publishing-a-release) before distributing
-a package.
+[release instructions](docs/BUILDING.md#publishing-a-release) for exporting
+the separate source archive.
+
+
+## Disclaimer
+
+The software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.

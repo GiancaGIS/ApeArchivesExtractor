@@ -3,6 +3,7 @@
 /dist
 /.pytest_cache
 /.pytest-tmp
+/.venv*
 *.pyc
 /src/apearchivesextractor.egg-info
 LICENSE_AUDIT.md

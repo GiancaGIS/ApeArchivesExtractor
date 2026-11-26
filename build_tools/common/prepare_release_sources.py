@@ -1,46 +1,44 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Copyright (c) 2026 GiancaGIS
-"""Mirror exact upstream sources and legal files without executing downloaded code."""
+"""Prepare bundled notices or export the matching source archive for distribution."""
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
+import os
 import re
 import shutil
 import tarfile
+import tempfile
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
 import xml.etree.ElementTree as ET
+from functools import cache
 from pathlib import Path, PurePosixPath
 
-from collect_licenses import digest, legal_file, slug, source_snapshot
+from check_release import GITHUB_SOURCE_REFERENCE, check_bundle, check_companion, companion_path, github_source_url
+from collect_licenses import ROOT, bundle_file, digest, legal_directory, legal_file, slug, source_snapshot
+from release_privacy import PrivacyCheck
 
-ROOT = Path(__file__).resolve().parents[1]
-
-
-def legal_directory(bundle: Path) -> Path:
-    candidates = [bundle / "_internal/apearchivesextractor/legal/generated",
-                  bundle / "Contents/Resources/apearchivesextractor/legal/generated"]
-    for candidate in candidates:
-        if (candidate / "component-manifest.json").is_file():
-            return candidate
-    raise RuntimeError(f"No generated license inventory in {bundle}; rebuild the application first")
-
-
-def bundle_file(bundle: Path, name: str) -> Path:
-    for base in (bundle / "_internal", bundle / "Contents/Frameworks", bundle / "Contents/Resources", bundle):
-        candidate = base / name
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError(f"Bundled file not found: {name}")
+CACHE_ROOT = Path(os.environ.get("APE_RELEASE_CACHE", ROOT / "build"))
 
 
 def read_url(url: str) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "ApeArchivesExtractor-license-preparation/1.0"})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return response.read()
+    timeouts = (15, 30, 60)
+    for timeout in timeouts:
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500 or timeout == timeouts[-1]:
+                raise
+        except (TimeoutError, urllib.error.URLError):
+            if timeout == timeouts[-1]:
+                raise
 
 
 def download(url: str, cache: Path, expected: str | None) -> Path:
@@ -49,15 +47,26 @@ def download(url: str, cache: Path, expected: str | None) -> Path:
         raise ValueError(f"Invalid archive URL: {url}")
     target = cache / filename
     if not target.exists() or (expected and digest(target) != expected):
-        temporary = target.with_suffix(target.suffix + ".part")
         request = urllib.request.Request(url, headers={"User-Agent": "ApeArchivesExtractor-license-preparation/1.0"})
-        with urllib.request.urlopen(request, timeout=60) as response, temporary.open("wb") as output:
-            shutil.copyfileobj(response, output)
-        if expected and digest(temporary) != expected:
-            temporary.unlink()
-            raise RuntimeError(f"Upstream SHA-256 mismatch: {filename}")
-        temporary.replace(target)
+        with tempfile.NamedTemporaryFile(dir=cache, delete=False) as output:
+            temporary = Path(output.name)
+            try:
+                with output, urllib.request.urlopen(request, timeout=60) as response:
+                    shutil.copyfileobj(response, output)
+                if expected and digest(temporary) != expected:
+                    raise RuntimeError(f"Upstream SHA-256 mismatch: {filename}")
+                temporary.replace(target)
+            finally:
+                temporary.unlink(missing_ok=True)
     return target
+
+
+@cache
+def qt_binding_source(version: str) -> tuple[str, str]:
+    url = ("https://download.qt.io/official_releases/QtForPython/pyside6/"
+           f"PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz")
+    checksum = read_url(url + ".sha256").decode("ascii").split()[0]
+    return url.replace("https://download.qt.io/", "https://master.qt.io/"), checksum
 
 
 def copy_archive_notices(archive: Path, destination: Path) -> list[str]:
@@ -102,26 +111,25 @@ def copy_archive_notices(archive: Path, destination: Path) -> list[str]:
     return copied
 
 
-def prepare(bundle: Path) -> Path:
+def prepare_notices(bundle: Path) -> None:
     legal = legal_directory(bundle)
     inventory_path = legal / "component-manifest.json"
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     snapshot = source_snapshot(ROOT)
     if snapshot != inventory.get("application_files_sha256"):
         raise RuntimeError("Application source snapshot differs from this binary's build. Rebuild before preparing release sources.")
-    cache = ROOT / "build" / "source-cache"
+    cache = CACHE_ROOT / "source-cache"
     cache.mkdir(parents=True, exist_ok=True)
     records = []
-    archives = []
 
-    def add(name: str, version: str, url: str, expected: str | None) -> None:
+    def add(name: str, version: str, url: str, expected: str | None) -> Path:
         print(f"Preparing source: {name} {version}", flush=True)
         archive = download(url, cache, expected)
         notices = copy_archive_notices(archive, legal / "native" / slug(name))
         records.append({"name": name, "version": version, "url": url, "filename": archive.name,
                         "sha256": digest(archive), "upstream_sha256_verified": expected is not None,
                         "notice_files": [f"native/{slug(name)}/{p}" for p in notices]})
-        archives.append(archive)
+        return archive
 
     binding_versions = set()
     for component in inventory["components"]:
@@ -136,10 +144,8 @@ def prepare(bundle: Path) -> Path:
         add(component["name"], component["version"], source["url"], source["digests"]["sha256"])
 
     for version in sorted(binding_versions):
-        url = ("https://download.qt.io/official_releases/QtForPython/pyside6/"
-               f"PySide6-{version}-src/pyside-setup-everywhere-src-{version}.tar.xz")
-        checksum = read_url(url + ".sha256").decode("ascii").split()[0]
-        add("QtForPython", version, url.replace("https://download.qt.io/", "https://master.qt.io/"), checksum)
+        url, checksum = qt_binding_source(version)
+        add("QtForPython", version, url, checksum)
 
     qt = inventory["qt_version"]
     minor = ".".join(qt.split(".")[:2])
@@ -153,12 +159,11 @@ def prepare(bundle: Path) -> Path:
         # independently fetched published checksum and normal TLS verification.
         add(module, qt, url.replace("https://download.qt.io/", "https://master.qt.io/"), checksum)
     python = inventory["python_version"]
-    add("Python", python, f"https://www.python.org/ftp/python/{python}/Python-{python}.tar.xz", None)
+    python_archive = add("Python", python, f"https://www.python.org/ftp/python/{python}/Python-{python}.tar.xz", None)
     # Windows CPython sources name the external dependency versions used by its
     # official build. Their archives preserve additional native copyright notices.
     # A release reviewer must still verify these against the actual interpreter.
     if inventory["platform"] == "win32":
-        python_archive = archives[-1]
         with tarfile.open(python_archive) as archive:
             entry = next(e for e in archive if e.name.endswith("/PCbuild/python.props"))
             with archive.extractfile(entry) as stream:
@@ -210,7 +215,6 @@ def prepare(bundle: Path) -> Path:
             records.append({"name": name, "version": version, "artifact_kind": "license-document", "url": url,
                             "filename": document.name, "sha256": digest(document), "upstream_sha256_verified": False,
                             "notice_files": [f"native/{folder}/LICENSE.txt", f"native/{folder}/" + document.name]})
-            archives.append(document)
         runtime_folder = "microsoft-runtime-2026" if series == "2026" else "microsoft-runtime"
         installer_license = (legal / "LICENSE").read_text(encoding="utf-8")
         installer_license += (
@@ -227,7 +231,8 @@ def prepare(bundle: Path) -> Path:
         binary["bundled_sha256"] = digest(bundle_file(bundle, binary["path"]))
     inventory["application_binaries"] = [
         {"path": p.relative_to(bundle).as_posix(), "sha256": digest(p)}
-        for p in sorted(bundle.rglob("*")) if p.is_file() and p.suffix.lower() in {".exe", ".dll", ".msix"}
+        for p in sorted(bundle.rglob("*")) if p.is_file()
+        and (p.suffix.lower() in {".exe", ".dll", ".msix"} or p.name in {"ApeArchivesExtractor", "ape-arch"})
         and "_internal" not in p.parts and "legal" not in p.parts
     ]
     inventory_path.write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
@@ -241,25 +246,61 @@ def prepare(bundle: Path) -> Path:
     manifest["legal_files_sha256"] = {p.relative_to(legal).as_posix(): digest(p) for p in sorted(legal.rglob("*"))
                                     if p.is_file() and p.name != "source-manifest.json"}
     (legal / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    companion = ROOT / "dist" / f"ApeArchivesExtractor-sources-{inventory['application_version']}.zip"
-    # Replace atomically, so failed preparation cannot leave a new partial release artifact.
-    temporary = companion.with_suffix(".zip.part")
-    with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as source_zip:
-        for relative in snapshot:
-            source_zip.write(ROOT / relative, "application/" + relative)
-        for archive in archives:
-            source_zip.write(archive, "dependencies/" + archive.name)
-        for p in sorted(legal.rglob("*")):
-            if p.is_file():
-                source_zip.write(p, "legal/" + p.relative_to(legal).as_posix())
-    temporary.replace(companion)
+
+
+def write_companion(bundle: Path, companion: Path | None = None, *, github_tag: str | None = None) -> Path:
+    legal, inventory, sources = check_bundle(bundle)
+    snapshot = sources["application_files_sha256"]
+    if github_tag is not None:
+        reference = {"tag": github_tag, "url": github_source_url(github_tag)}
+    elif source_snapshot(ROOT) != snapshot:
+        raise RuntimeError("Application source snapshot differs from this binary's build. Use its matching checkout.")
+    cache = CACHE_ROOT / "source-cache"
+    cache.mkdir(parents=True, exist_ok=True)
+    archives = [download(record["url"], cache, record["sha256"]) for record in sources["sources"]]
+    companion = companion or companion_path(bundle, inventory, dependency_sources=github_tag is not None)
+    companion.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=companion.parent, prefix=".ape-sources-", suffix=".zip", delete=False) as output:
+        temporary = Path(output.name)
+    try:
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_DEFLATED) as source_zip:
+            if github_tag is not None:
+                source_zip.writestr(GITHUB_SOURCE_REFERENCE, json.dumps(reference, indent=2) + "\n")
+            else:
+                for relative in snapshot:
+                    source_zip.write(ROOT / relative, "application/" + relative)
+            for record, archive in zip(sources["sources"], archives, strict=True):
+                source_zip.write(archive, "dependencies/" + record["filename"])
+            source_zip.write(legal / "source-manifest.json", "legal/source-manifest.json")
+            for relative in sources["legal_files_sha256"]:
+                source_zip.write(legal / relative, "legal/" + relative)
+        check_companion(temporary, legal, sources)
+        PrivacyCheck(ROOT).check(temporary)
+        temporary.replace(companion)
+    finally:
+        temporary.unlink(missing_ok=True)
     print(f"Source companion: {companion}", flush=True)
-    print("Run scripts/check_release.py to verify license files, sources and checksums.", flush=True)
+    if github_tag is not None:
+        print(f"Application source for the release notes: {reference['url']}", flush=True)
+        print("After pushing the tag, run check_release.py to verify its contents before publishing.", flush=True)
     return companion
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle", type=Path, default=ROOT / "dist/ApeArchivesExtractor")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--companion", type=Path, help="path for the verified source ZIP")
+    mode.add_argument("--notices-only", action="store_true", help="prepare notices and the manifest for a local build")
+    parser.add_argument("--github-tag", help="export DependencySources locally for this planned GitHub release tag")
     args = parser.parse_args()
-    prepare(args.bundle.resolve())
+    if args.github_tag is not None and args.notices_only:
+        parser.error("--github-tag cannot be combined with --notices-only")
+    bundle = args.bundle.resolve()
+    try:
+        if not (legal_directory(bundle) / "source-manifest.json").exists():
+            prepare_notices(bundle)
+        if not args.notices_only:
+            write_companion(bundle, args.companion, github_tag=args.github_tag)
+    except (RuntimeError, OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
+        parser.exit(1, f"Source preparation failed: {exc}\n")

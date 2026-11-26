@@ -17,22 +17,27 @@ from pathlib import Path
 from packaging.utils import parse_wheel_filename
 from packaging.tags import parse_tag
 
-from collect_licenses import digest, slug
-from prepare_release_sources import ROOT, bundle_file, download, legal_directory, read_url
+from collect_licenses import ROOT, bundle_file, digest, legal_directory, slug
+from prepare_release_sources import CACHE_ROOT, download, read_url
 
 
 def verify(bundle: Path) -> Path:
     legal = legal_directory(bundle)
     inventory = json.loads((legal / "component-manifest.json").read_text(encoding="utf-8"))
-    cache = ROOT / "build" / "provenance-cache"
+    cache = CACHE_ROOT / "provenance-cache"
     cache.mkdir(parents=True, exist_ok=True)
     artifacts = []
     verified = []
     runtime_path = legal / "windows-runtime.json"
     runtime = json.loads(runtime_path.read_text(encoding="utf-8-sig")) if runtime_path.exists() else {"files": []}
+    local_path = ROOT / "build" / "windows-runtime-local.json"
+    local_sources = json.loads(local_path.read_text(encoding="utf-8-sig")) if local_path.exists() else {}
     runtime_files = {r["path"].casefold(): r for r in runtime["files"]}
     for relative, record in runtime_files.items():
-        original = Path(record["source"])
+        source = local_sources.get(record["path"], record.get("source"))
+        if not source:
+            raise RuntimeError(f"Local redistributable record is missing: {relative}")
+        original = Path(source)
         if "debug_nonredist" in str(original).lower() or not any(p.lower() == "redist" for p in original.parts):
             raise RuntimeError(f"Not a release redistributable: {original}")
         if digest(original) != record["sha256"] or digest(bundle / relative) != record["sha256"]:

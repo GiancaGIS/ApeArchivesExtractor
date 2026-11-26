@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
-import traceback
+import shutil
 import time
+import traceback
 from pathlib import Path
+from tempfile import mkdtemp
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal, Slot
@@ -119,13 +121,19 @@ class ArchiveWorker(QObject):
                 return
 
             if self.operation == "extract_drag":
-                self.result.emit(prepare_drag_paths(
-                    self.service, self.args[0], self.args[1], self.args[2],
-                    password=self.kwargs.get("password"),
-                    archive_format=self.kwargs.get("archive_format"),
-                    progress=self._emit_progress,
-                    should_cancel=self.should_cancel,
-                ))
+                temporary_dir = Path(mkdtemp(prefix="apearchivesextractor_drag_"))
+                try:
+                    paths = prepare_drag_paths(
+                        self.service, self.args[0], temporary_dir, self.args[1],
+                        password=self.kwargs.get("password"),
+                        archive_format=self.kwargs.get("archive_format"),
+                        progress=self._emit_progress,
+                        should_cancel=self.should_cancel,
+                    )
+                except Exception:
+                    shutil.rmtree(temporary_dir, ignore_errors=True)
+                    raise
+                self.result.emit((temporary_dir, paths))
                 return
 
             if self.operation == "extract_single_file":
